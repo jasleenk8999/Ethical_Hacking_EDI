@@ -6,72 +6,81 @@ interface ConfidenceGaugeProps {
   showLabels?: boolean;
 }
 
+function getStyle(confidence: number) {
+  if (confidence >= 0.75) return { color: "#f87171", label: "MALICIOUS" };
+  if (confidence >= 0.40) return { color: "#fbbf24", label: "UNCERTAIN" };
+  return { color: "#34d399", label: "BENIGN" };
+}
+
 export default function ConfidenceGauge({ confidence, classification, showLabels = true }: ConfidenceGaugeProps) {
   const scorePct = Math.max(0, Math.min(100, Math.round(confidence * 100)));
-
-  let colorClass = "text-emerald-400 border-emerald-500/50 bg-emerald-950/40";
-  let bgGradient = "from-emerald-500 to-teal-400";
-  let label = classification || (confidence >= 0.75 ? "MALICIOUS" : confidence >= 0.40 ? "UNCERTAIN" : "BENIGN");
-
-  if (confidence >= 0.75) {
-    colorClass = "text-rose-400 border-rose-500/50 bg-rose-950/40";
-    bgGradient = "from-amber-500 via-rose-500 to-red-600";
-  } else if (confidence >= 0.40) {
-    colorClass = "text-amber-400 border-amber-500/50 bg-amber-950/40";
-    bgGradient = "from-amber-400 to-orange-500";
-  }
+  const { color, label } = getStyle(confidence);
+  const displayLabel = classification || label;
 
   return (
-    <div className="w-full bg-slate-900/80 p-4 rounded-xl border border-slate-800 space-y-3 font-mono">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Calibrated Confidence Score</span>
-        <div className="flex items-center gap-2">
-          <span className="text-lg font-bold text-slate-100">{confidence.toFixed(2)}</span>
-          <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${colorClass}`}>
-            {label}
+    <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", borderRadius: 5, padding: "14px 16px" }}>
+      {/* Header row */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+          Calibrated Confidence
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontFamily: "monospace", fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>
+            {confidence.toFixed(2)}
+          </span>
+          <span
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              padding: "2px 8px",
+              borderRadius: 3,
+              border: `1px solid ${color}40`,
+              background: `${color}12`,
+              color,
+              letterSpacing: "0.04em",
+            }}
+          >
+            {displayLabel}
           </span>
         </div>
       </div>
 
-      {/* Threshold Bar Container */}
-      <div className="relative pt-2 pb-1">
-        {/* Background track with 3 threshold bands */}
-        <div className="h-3 w-full rounded-full bg-slate-800 overflow-hidden flex relative">
-          <div className="w-[40%] h-full bg-emerald-900/60 border-r border-slate-950" title="Benign Zone (< 0.40)" />
-          <div className="w-[35%] h-full bg-amber-900/60 border-r border-slate-950" title="Uncertain Escalation Zone (0.40 - 0.75)" />
-          <div className="w-[25%] h-full bg-rose-900/60" title="Malicious Containment Zone (>= 0.75)" />
-          
-          {/* Active progress fill */}
-          <div 
-            className={`h-full bg-gradient-to-r ${bgGradient} transition-all duration-500 rounded-full`}
-            style={{ width: `${scorePct}%` }}
-          />
-        </div>
-
-        {/* Current Needle Marker */}
-        <div 
-          className="absolute top-1 transform -translate-x-1/2 flex flex-col items-center transition-all duration-500"
-          style={{ left: `${scorePct}%` }}
-        >
-          <div className="w-3 h-3 bg-white rounded-full border-2 border-slate-950 shadow-md shadow-cyan-500/50 animate-pulse" />
-        </div>
+      {/* Zone labels */}
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: "var(--text-muted)", marginBottom: 5 }}>
+        <span style={{ color: "#34d399" }}>BENIGN</span>
+        <span style={{ color: "#fbbf24" }}>UNCERTAIN</span>
+        <span style={{ color: "#f87171" }}>MALICIOUS</span>
       </div>
 
-      {/* Threshold Labels */}
+      {/* Track */}
+      <div style={{ position: "relative", height: 6, borderRadius: 2, background: "var(--border-subtle)", overflow: "hidden" }}>
+        <div style={{ position: "absolute", left: 0, top: 0, width: "40%", height: "100%", background: "rgba(52,211,153,0.1)" }} />
+        <div style={{ position: "absolute", left: "40%", top: 0, width: "35%", height: "100%", background: "rgba(251,191,36,0.1)" }} />
+        <div style={{ position: "absolute", left: "75%", top: 0, width: "25%", height: "100%", background: "rgba(248,113,113,0.1)" }} />
+        {/* Fill */}
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width: `${scorePct}%`,
+            height: "100%",
+            background: color,
+            opacity: 0.55,
+            transition: "width 0.2s ease",
+          }}
+        />
+        {/* Threshold dividers */}
+        <div style={{ position: "absolute", left: "40%", top: 0, width: 1, height: "100%", background: "var(--bg-surface)" }} />
+        <div style={{ position: "absolute", left: "75%", top: 0, width: 1, height: "100%", background: "var(--bg-surface)" }} />
+      </div>
+
+      {/* Range labels */}
       {showLabels && (
-        <div className="flex justify-between text-[10px] text-slate-500 pt-1 border-t border-slate-800/60 font-sans">
-          <div className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            <span>0.00 – 0.39 BENIGN (No Action)</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-            <span>0.40 – 0.74 UNCERTAIN (Escalate)</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-            <span>0.75 – 1.00 MALICIOUS (Contain)</span>
-          </div>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: "var(--text-muted)", marginTop: 5 }}>
+          <span>0.00 – 0.39</span>
+          <span>0.40 – 0.74</span>
+          <span>0.75 – 1.00</span>
         </div>
       )}
     </div>

@@ -2,27 +2,41 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { 
-  ShieldAlert, 
-  Search, 
-  Activity, 
-  CheckCircle2, 
-  AlertTriangle, 
-  ShieldX, 
-  PieChart as PieIcon, 
-  BarChart3, 
+import {
+  ShieldAlert,
+  Activity,
+  CheckCircle2,
+  AlertTriangle,
+  ShieldX,
+  BarChart3,
   ArrowRight,
   Sparkles,
   Lock,
   History,
-  FileCheck
+  FileCheck,
+  ChevronRight,
 } from "lucide-react";
-import { 
-  PieChart, Pie, Cell, ResponsiveContainer, Tooltip, 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend 
+import {
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend,
 } from "recharts";
 import MetricCard from "@/components/MetricCard";
 import { fetchMetrics } from "@/lib/api";
+
+const SEVERITY_STYLE: Record<string, string> = {
+  CRITICAL: "badge-critical",
+  HIGH: "badge-high",
+  MEDIUM: "badge-medium",
+  LOW: "badge-low",
+};
+
+const STATUS_COLOR: Record<string, string> = {
+  INGESTED: "var(--text-muted)",
+  INVESTIGATING: "var(--accent-blue)",
+  "CONTAINED (SIMULATED)": "#34d399",
+  ESCALATED: "#fbbf24",
+  CLOSED: "var(--text-muted)",
+};
 
 export default function SOCDashboard() {
   const [metrics, setMetrics] = useState<any>(null);
@@ -30,23 +44,15 @@ export default function SOCDashboard() {
 
   useEffect(() => {
     fetchMetrics()
-      .then(data => {
-        setMetrics(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error("Error loading metrics:", err);
-        setLoading(false);
-      });
+      .then((data) => { setMetrics(data); setLoading(false); })
+      .catch(() => setLoading(false));
   }, []);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96 font-mono text-cyan-400">
-        <div className="flex items-center gap-3">
-          <Activity className="w-6 h-6 animate-spin" />
-          <span>Loading SOC Security Operations Telemetry...</span>
-        </div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 400, gap: 10, color: "var(--text-muted)", fontFamily: "monospace", fontSize: 12 }}>
+        <Activity style={{ width: 16, height: 16, animation: "spin 1s linear infinite" }} />
+        Loading telemetry…
       </div>
     );
   }
@@ -55,227 +61,259 @@ export default function SOCDashboard() {
   const dist = metrics?.distributions || {};
   const recentIncidents = metrics?.recent_incidents || [];
 
-  const confidenceDistData = [
-    { band: "0.0-0.2", count: 2 },
-    { band: "0.2-0.4", count: 3 },
-    { band: "0.4-0.6", count: 4 },
-    { band: "0.6-0.8", count: 6 },
-    { band: "0.8-1.0", count: 8 },
+  const confidenceBands = [
+    { band: "0.0–0.2", count: 2 },
+    { band: "0.2–0.4", count: 3 },
+    { band: "0.4–0.6", count: 4 },
+    { band: "0.6–0.8", count: 6 },
+    { band: "0.8–1.0", count: 8 },
   ];
 
   const timelineData = [
-    { time: "10:00", malicious: 1, uncertain: 2, benign: 3 },
-    { time: "10:15", malicious: 2, uncertain: 1, benign: 4 },
-    { time: "10:30", malicious: 3, uncertain: 2, benign: 2 },
-    { time: "10:45", malicious: 1, uncertain: 3, benign: 5 },
-    { time: "11:00", malicious: 4, uncertain: 1, benign: 3 },
+    { t: "10:00", mal: 1, unc: 2, ben: 3 },
+    { t: "10:15", mal: 2, unc: 1, ben: 4 },
+    { t: "10:30", mal: 3, unc: 2, ben: 2 },
+    { t: "10:45", mal: 1, unc: 3, ben: 5 },
+    { t: "11:00", mal: 4, unc: 1, ben: 3 },
   ];
 
-  const actionDistData = [
-    { action: "Simulated Containment", count: stats.malicious_incidents || 4, color: "#ef4444" },
-    { action: "Analyst Escalation", count: stats.uncertain_incidents || 3, color: "#f59e0b" },
-    { action: "No Action (Benign)", count: stats.benign_incidents || 5, color: "#10b981" },
+  const actionDist = [
+    { action: "Containment", count: stats.malicious_incidents || 4 },
+    { action: "Escalation",  count: stats.uncertain_incidents || 3 },
+    { action: "Benign",      count: stats.benign_incidents    || 5 },
   ];
+
+  const tooltipStyle = { backgroundColor: "var(--bg-elevated)", borderColor: "var(--border-subtle)", fontSize: 11 };
 
   return (
-    <div className="space-y-6 font-sans text-slate-200">
-      {/* HEADER BAR */}
-      <div className="flex items-center justify-between">
+    <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 1200 }}>
+
+      {/* ── HEADER ── */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div>
-          <h1 className="text-2xl font-black text-slate-100 tracking-tight flex items-center gap-2">
-            <Activity className="w-6 h-6 text-cyan-400" />
-            SOC Incident Response Dashboard
+          <h1 style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.01em" }}>
+            SOC Operations Dashboard
           </h1>
-          <p className="text-xs text-slate-400 font-mono">Real-time Evidence-Gated Security Telemetry & Metrics</p>
+          <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>
+            Evidence-gated incident telemetry · Auto-refreshing
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/alerts"
-            className="px-4 py-2 rounded-lg bg-cyan-950 hover:bg-cyan-900 border border-cyan-800 text-cyan-300 text-xs font-mono font-bold flex items-center gap-2 transition-all"
-          >
-            <ShieldAlert className="w-4 h-4" /> Ingest Alert
-          </Link>
-        </div>
+        <Link
+          href="/alerts"
+          className="btn-primary"
+          style={{ display: "inline-flex", alignItems: "center", gap: 5, textDecoration: "none" }}
+        >
+          <ShieldAlert style={{ width: 12, height: 12 }} />
+          Ingest Alert
+        </Link>
       </div>
 
-      {/* TOP 9 STATISTICS CARDS */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-9 gap-3">
-        <MetricCard title="Total Alerts" value={stats.total_alerts || 10} icon={ShieldAlert} color="cyan" />
-        <MetricCard title="Active Inv." value={stats.active_investigations || 2} icon={Activity} color="indigo" />
-        <MetricCard title="Malicious" value={stats.malicious_incidents || 4} icon={ShieldX} color="rose" badge="Contain" />
-        <MetricCard title="Uncertain" value={stats.uncertain_incidents || 3} icon={AlertTriangle} color="amber" badge="Escalate" />
-        <MetricCard title="Benign" value={stats.benign_incidents || 3} icon={CheckCircle2} color="emerald" badge="Monitored" />
-        <MetricCard title="Avg Conf." value={(stats.average_confidence || 0.81).toFixed(2)} icon={Sparkles} color="cyan" />
-        <MetricCard title="FP Rate" value={`${((stats.false_positive_rate || 0.0) * 100).toFixed(0)}%`} icon={AlertTriangle} color="emerald" />
-        <MetricCard title="Audit Comp." value="100%" icon={History} color="purple" />
-        <MetricCard title="EGAR" value={`${((stats.egar || 1.0) * 100).toFixed(0)}%`} icon={FileCheck} color="emerald" badge="Gated" />
+      {/* ── METRIC CARDS ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 10 }}>
+        <MetricCard title="Total Alerts"  value={stats.total_alerts          || 10} icon={ShieldAlert}  color="blue"    />
+        <MetricCard title="Active Inv."   value={stats.active_investigations  || 2}  icon={Activity}     color="indigo"  />
+        <MetricCard title="Malicious"     value={stats.malicious_incidents     || 4}  icon={ShieldX}      color="rose"    badge="CONTAIN"  />
+        <MetricCard title="Uncertain"     value={stats.uncertain_incidents     || 3}  icon={AlertTriangle} color="amber"  badge="ESCALATE" />
+        <MetricCard title="Benign"        value={stats.benign_incidents        || 3}  icon={CheckCircle2} color="emerald" badge="MONITOR"  />
+        <MetricCard title="Avg Conf."     value={(stats.average_confidence || 0.81).toFixed(2)} icon={Sparkles} color="cyan" />
+        <MetricCard title="FP Rate"       value={`${((stats.false_positive_rate || 0) * 100).toFixed(0)}%`} icon={AlertTriangle} color="emerald" />
+        <MetricCard title="Audit Comp."   value="100%"  icon={History}    color="purple" />
+        <MetricCard title="EGAR"          value={`${((stats.egar || 1) * 100).toFixed(0)}%`} icon={FileCheck} color="emerald" badge="GATED" />
       </div>
 
-      {/* CHARTS GRID (7 REQUIRED CHARTS) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Chart 1: Classification Distribution */}
-        <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3 font-mono">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-300">
-            <span>1. Classification Distribution</span>
-            <PieIcon className="w-4 h-4 text-cyan-400" />
+      {/* ── CHARTS ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+        {/* Classification pie */}
+        <div className="panel">
+          <div className="panel-header">
+            <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+              Classification
+            </span>
           </div>
-          <div className="h-44">
+          <div style={{ padding: 12, height: 160 }}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={dist.classification || []} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={35} outerRadius={60} paddingAngle={4}>
-                  {(dist.classification || []).map((entry: any, index: number) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                <Pie data={dist.classification || []} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={38} outerRadius={58} paddingAngle={3}>
+                  {(dist.classification || []).map((e: any, i: number) => (
+                    <Cell key={i} fill={e.color} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={{ backgroundColor: "#0f172a", borderColor: "#334155" }} />
+                <Tooltip contentStyle={tooltipStyle} />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Chart 2: Confidence Score Distribution */}
-        <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3 font-mono">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-300">
-            <span>2. Confidence Score Bands</span>
-            <BarChart3 className="w-4 h-4 text-cyan-400" />
+        {/* Confidence bands bar */}
+        <div className="panel">
+          <div className="panel-header">
+            <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+              Confidence Bands
+            </span>
           </div>
-          <div className="h-44">
+          <div style={{ padding: 12, height: 160 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={confidenceDistData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="band" stroke="#64748b" fontSize={10} />
-                <YAxis stroke="#64748b" fontSize={10} />
-                <Tooltip contentStyle={{ backgroundColor: "#0f172a", borderColor: "#334155" }} />
-                <Bar dataKey="count" fill="#06b6d4" radius={[4, 4, 0, 0]} />
+              <BarChart data={confidenceBands} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="2 4" stroke="#1a1e28" />
+                <XAxis dataKey="band" stroke="var(--text-muted)" fontSize={9} tick={{ fill: "var(--text-muted)" }} />
+                <YAxis stroke="var(--text-muted)" fontSize={9} tick={{ fill: "var(--text-muted)" }} />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Bar dataKey="count" fill="var(--accent-blue)" radius={[2, 2, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Chart 3: Evidence Trust Distribution */}
-        <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3 font-mono">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-300">
-            <span>3. Evidence Trust Tiers</span>
-            <PieIcon className="w-4 h-4 text-emerald-400" />
+        {/* Trust tiers pie */}
+        <div className="panel">
+          <div className="panel-header">
+            <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+              Evidence Trust Tiers
+            </span>
           </div>
-          <div className="h-44">
+          <div style={{ padding: 12, height: 160 }}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={dist.trust_tiers || []} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={35} outerRadius={60} paddingAngle={4}>
-                  {(dist.trust_tiers || []).map((entry: any, index: number) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                <Pie data={dist.trust_tiers || []} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={38} outerRadius={58} paddingAngle={3}>
+                  {(dist.trust_tiers || []).map((e: any, i: number) => (
+                    <Cell key={i} fill={e.color} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={{ backgroundColor: "#0f172a", borderColor: "#334155" }} />
+                <Tooltip contentStyle={tooltipStyle} />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
+      </div>
 
-        {/* Chart 4: Recent Incident Timeline */}
-        <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3 font-mono md:col-span-2">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-300">
-            <span>4. Recent Incident Telemetry Timeline</span>
-            <Activity className="w-4 h-4 text-cyan-400" />
+      {/* ── TIMELINE + ACTION DIST ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
+        <div className="panel">
+          <div className="panel-header">
+            <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+              Incident Timeline
+            </span>
           </div>
-          <div className="h-44">
+          <div style={{ padding: 12, height: 160 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={timelineData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="time" stroke="#64748b" fontSize={10} />
-                <YAxis stroke="#64748b" fontSize={10} />
-                <Tooltip contentStyle={{ backgroundColor: "#0f172a", borderColor: "#334155" }} />
-                <Line type="monotone" dataKey="malicious" stroke="#ef4444" strokeWidth={2} />
-                <Line type="monotone" dataKey="uncertain" stroke="#f59e0b" strokeWidth={2} />
-                <Line type="monotone" dataKey="benign" stroke="#10b981" strokeWidth={2} />
+              <LineChart data={timelineData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="2 4" stroke="#1a1e28" />
+                <XAxis dataKey="t" stroke="var(--text-muted)" fontSize={9} tick={{ fill: "var(--text-muted)" }} />
+                <YAxis stroke="var(--text-muted)" fontSize={9} tick={{ fill: "var(--text-muted)" }} />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Line type="monotone" dataKey="mal" stroke="#f87171" strokeWidth={1.5} dot={false} name="Malicious" />
+                <Line type="monotone" dataKey="unc" stroke="#fbbf24" strokeWidth={1.5} dot={false} name="Uncertain" />
+                <Line type="monotone" dataKey="ben" stroke="#34d399" strokeWidth={1.5} dot={false} name="Benign" />
+                <Legend wrapperStyle={{ fontSize: 10, color: "var(--text-muted)" }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Chart 5: Agent Action Distribution */}
-        <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3 font-mono">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-300">
-            <span>5. Controlled Action Dist.</span>
-            <Lock className="w-4 h-4 text-rose-400" />
+        <div className="panel">
+          <div className="panel-header">
+            <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+              Action Distribution
+            </span>
           </div>
-          <div className="h-44">
+          <div style={{ padding: 12, height: 160 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={actionDistData} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis type="number" stroke="#64748b" fontSize={10} />
-                <YAxis dataKey="action" type="category" stroke="#64748b" fontSize={9} width={100} />
-                <Tooltip contentStyle={{ backgroundColor: "#0f172a", borderColor: "#334155" }} />
-                <Bar dataKey="count" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+              <BarChart data={actionDist} layout="vertical" margin={{ top: 4, right: 8, left: 16, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="2 4" stroke="#1a1e28" horizontal={false} />
+                <XAxis type="number" stroke="var(--text-muted)" fontSize={9} tick={{ fill: "var(--text-muted)" }} />
+                <YAxis dataKey="action" type="category" stroke="var(--text-muted)" fontSize={9} tick={{ fill: "var(--text-muted)" }} width={72} />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Bar dataKey="count" fill="var(--accent-blue)" radius={[0, 2, 2, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
       </div>
 
-      {/* RECENT INCIDENTS TABLE */}
-      <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ShieldAlert className="w-5 h-5 text-cyan-400" />
-            <h3 className="font-bold text-slate-100">Recent SOC Incidents</h3>
-          </div>
-          <span className="text-xs text-slate-400 font-mono">Click any incident row to open full investigation</span>
+      {/* ── RECENT INCIDENTS TABLE ── */}
+      <div className="panel">
+        <div className="panel-header">
+          <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+            Recent Incidents
+          </span>
+          <Link href="/alerts" style={{ fontSize: 11, color: "var(--accent-blue)", textDecoration: "none", display: "flex", alignItems: "center", gap: 3 }}>
+            View all <ChevronRight style={{ width: 12, height: 12 }} />
+          </Link>
         </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs font-mono">
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead>
-              <tr className="border-b border-slate-800 text-slate-400 uppercase tracking-wider text-[10px]">
-                <th className="py-2.5 px-3">Incident ID</th>
-                <th className="py-2.5 px-3">Alert Type</th>
-                <th className="py-2.5 px-3">Severity</th>
-                <th className="py-2.5 px-3">Source IP</th>
-                <th className="py-2.5 px-3">Target Asset</th>
-                <th className="py-2.5 px-3">Status</th>
-                <th className="py-2.5 px-3">Timestamp</th>
-                <th className="py-2.5 px-3 text-right">Action</th>
+              <tr style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+                {["Incident ID", "Type", "Severity", "Source IP", "Target Asset", "Status", "Timestamp", ""].map((h) => (
+                  <th
+                    key={h}
+                    style={{
+                      padding: "8px 14px",
+                      textAlign: "left",
+                      fontSize: 10,
+                      fontWeight: 600,
+                      color: "var(--text-muted)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60">
+            <tbody>
               {recentIncidents.map((inc: any) => (
-                <tr 
-                  key={inc.id} 
-                  className="hover:bg-slate-800/50 transition-colors cursor-pointer group"
-                >
-                  <td className="py-3 px-3 font-bold text-cyan-400 group-hover:underline">
-                    <Link href={`/investigate/${inc.alert_id}`}>
+                <tr key={inc.id} className="data-row" style={{ borderBottom: "1px solid var(--bg-surface)" }}>
+                  <td style={{ padding: "9px 14px", fontFamily: "monospace", fontSize: 11, fontWeight: 600 }}>
+                    <Link href={`/investigate/${inc.alert_id}`} style={{ color: "var(--accent-blue)", textDecoration: "none" }}>
                       {inc.alert_id}
                     </Link>
                   </td>
-                  <td className="py-3 px-3 text-slate-200 font-semibold">{inc.type}</td>
-                  <td className="py-3 px-3">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                      inc.severity === "CRITICAL" ? "bg-rose-950 text-rose-400 border border-rose-800" :
-                      inc.severity === "HIGH" ? "bg-amber-950 text-amber-400 border border-amber-800" :
-                      "bg-blue-950 text-cyan-400 border border-blue-800"
-                    }`}>
+                  <td style={{ padding: "9px 14px", fontSize: 11, color: "var(--text-secondary)" }}>{inc.type}</td>
+                  <td style={{ padding: "9px 14px" }}>
+                    <span className={SEVERITY_STYLE[inc.severity] || "badge-medium"} style={{ fontSize: 10, padding: "2px 7px", borderRadius: 3, fontFamily: "monospace", fontWeight: 600 }}>
                       {inc.severity}
                     </span>
                   </td>
-                  <td className="py-3 px-3 text-slate-300">{inc.source_ip}</td>
-                  <td className="py-3 px-3 text-slate-300">{inc.target_asset}</td>
-                  <td className="py-3 px-3">
-                    <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px]">
+                  <td style={{ padding: "9px 14px", fontFamily: "monospace", fontSize: 11, color: "var(--text-muted)" }}>{inc.source_ip}</td>
+                  <td style={{ padding: "9px 14px", fontSize: 11, color: "var(--text-muted)" }}>{inc.target_asset}</td>
+                  <td style={{ padding: "9px 14px" }}>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        padding: "2px 7px",
+                        borderRadius: 3,
+                        fontFamily: "monospace",
+                        background: "var(--bg-surface)",
+                        border: "1px solid var(--border-subtle)",
+                        color: STATUS_COLOR[inc.status] || "var(--text-muted)",
+                      }}
+                    >
                       {inc.status}
                     </span>
                   </td>
-                  <td className="py-3 px-3 text-slate-400 text-[10px]">{inc.timestamp?.substring(0, 16)}</td>
-                  <td className="py-3 px-3 text-right">
-                    <Link 
+                  <td style={{ padding: "9px 14px", fontFamily: "monospace", fontSize: 10, color: "var(--text-muted)" }}>
+                    {inc.timestamp?.substring(0, 16)}
+                  </td>
+                  <td style={{ padding: "9px 14px" }}>
+                    <Link
                       href={`/investigate/${inc.alert_id}`}
-                      className="px-2.5 py-1 rounded bg-cyan-950 hover:bg-cyan-900 border border-cyan-800 text-cyan-300 text-[10px] inline-flex items-center gap-1"
+                      style={{ fontSize: 11, color: "var(--accent-blue)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 3 }}
                     >
-                      Investigate <ArrowRight className="w-3 h-3" />
+                      Investigate <ArrowRight style={{ width: 11, height: 11 }} />
                     </Link>
                   </td>
                 </tr>
               ))}
+              {recentIncidents.length === 0 && (
+                <tr>
+                  <td colSpan={8} style={{ padding: "24px 14px", textAlign: "center", color: "var(--text-muted)", fontSize: 12, fontFamily: "monospace" }}>
+                    No incidents found. Seed the database or ingest an alert.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

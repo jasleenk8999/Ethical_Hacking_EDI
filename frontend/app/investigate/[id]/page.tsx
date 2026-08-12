@@ -1,46 +1,81 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
-import { 
-  ShieldAlert, 
-  Terminal, 
-  Layers, 
-  BrainCircuit, 
-  SlidersHorizontal, 
-  History, 
-  Play, 
-  CheckCircle2, 
-  Radio, 
-  AlertTriangle, 
-  Lock,
-  ArrowRight,
-  ShieldCheck
-} from "lucide-react";
+import { useParams } from "next/navigation";
+import { Play, Lock, AlertTriangle, CheckCircle2, ShieldCheck, Layers, Terminal } from "lucide-react";
 import { fetchAlertDetail, runInvestigation, simulateContainment, escalateIncident } from "@/lib/api";
 import TrustBadge from "@/components/TrustBadge";
 import ConfidenceGauge from "@/components/ConfidenceGauge";
 import EvidenceGraph from "@/components/EvidenceGraph";
 import ActionSimulationModal from "@/components/ActionSimulationModal";
 
+// ─── Pipeline steps ───────────────────────────────────────────────────────────
 const PIPELINE_STEPS = [
-  "Alert Ingested",
-  "Normalized",
-  "Investigation Started",
-  "Evidence Collection",
-  "Trust Assignment",
-  "Evidence Aggregation",
-  "Confidence Calculation",
-  "Decision",
-  "Action",
-  "Audit Logged"
+  "Alert Ingested", "Normalized", "Investigation Started",
+  "Evidence Collection", "Trust Assignment", "Evidence Aggregation",
+  "Confidence Calculation", "Decision", "Action", "Audit Logged"
 ];
 
+// ─── Severity badge styles ────────────────────────────────────────────────────
+function severityStyle(sev: string): { color: string; bg: string; border: string } {
+  if (sev === "CRITICAL") return { color: "#f87171", bg: "rgba(248,113,113,0.1)", border: "rgba(248,113,113,0.3)" };
+  if (sev === "HIGH")     return { color: "#fbbf24", bg: "rgba(251,191,36,0.1)",  border: "rgba(251,191,36,0.3)"  };
+  return                         { color: "var(--accent-blue)", bg: "rgba(96,165,250,0.1)",  border: "rgba(96,165,250,0.3)"  };
+}
+
+// ─── Classification style ─────────────────────────────────────────────────────
+function classStyle(cls: string): string {
+  if (cls === "MALICIOUS") return "#f87171";
+  if (cls === "UNCERTAIN") return "#fbbf24";
+  if (cls === "BENIGN")    return "#34d399";
+  return "var(--text-muted)";
+}
+
+// ─── Divider ──────────────────────────────────────────────────────────────────
+function Divider({ label }: { label: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+      <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", whiteSpace: "nowrap" }}>
+        {label}
+      </span>
+      <div style={{ flex: 1, height: 1, background: "var(--border-subtle)" }} />
+    </div>
+  );
+}
+
+// ─── Evidence tool card ───────────────────────────────────────────────────────
+function EvidenceToolCard({
+  title, latency, description, finding, tier, weight
+}: {
+  title: string; latency: string; description: string; finding: string;
+  tier: "VERIFIED" | "CORROBORATED" | "UNTRUSTED"; weight: number;
+}) {
+  return (
+    <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border-subtle)", borderRadius: 5, overflow: "hidden" }}>
+      {/* Card header */}
+      <div style={{ padding: "9px 14px", borderBottom: "1px solid var(--border-subtle)", background: "var(--bg-elevated)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-primary)" }}>{title}</span>
+        <span style={{ fontFamily: "monospace", fontSize: 10, color: "var(--text-muted)" }}>{latency}</span>
+      </div>
+      {/* Body */}
+      <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+        <p style={{ margin: 0, fontSize: 11, color: "var(--text-muted)", lineHeight: 1.55 }}>{description}</p>
+        <div style={{ fontSize: 11, color: "var(--text-secondary)", background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", borderRadius: 4, padding: "7px 10px", lineHeight: 1.55 }}>
+          {finding}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 10, color: "var(--text-muted)" }}>Trust Level</span>
+          <TrustBadge tier={tier} weight={weight} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
 export default function IncidentInvestigationPage() {
   const params = useParams();
   const alertId = params.id as string;
-  const router = useRouter();
 
   const [alert, setAlert] = useState<any>(null);
   const [investigationData, setInvestigationData] = useState<any>(null);
@@ -52,34 +87,29 @@ export default function IncidentInvestigationPage() {
   useEffect(() => {
     if (alertId) {
       fetchAlertDetail(alertId)
-        .then(data => setAlert(data))
-        .catch(err => console.error("Error loading alert:", err));
+        .then((data) => setAlert(data))
+        .catch((err) => console.error("Error loading alert:", err));
     }
   }, [alertId]);
 
   const handleStartInvestigation = async () => {
     setIsRunning(true);
     setActiveStepIndex(0);
-
-    // Simulate animated step-by-step progress
     for (let i = 1; i <= PIPELINE_STEPS.length; i++) {
-      await new Promise(r => setTimeout(r, 250));
+      await new Promise((r) => setTimeout(r, 250));
       setActiveStepIndex(i - 1);
     }
-
     try {
       const res = await runInvestigation(alertId);
       setInvestigationData(res);
-      // Reload alert to update status
       const updatedAlert = await fetchAlertDetail(alertId);
       setAlert(updatedAlert);
-      
       if (res.decision?.action?.includes("SIMULATED")) {
         setModalDetails({
           target_host: updatedAlert.target_asset,
           blocked_ip: updatedAlert.source_ip,
           containment_type: res.decision.action,
-          safety_banner: "SIMULATION MODE — NO REAL INFRASTRUCTURE MODIFIED"
+          safety_banner: "SIMULATION MODE — NO REAL INFRASTRUCTURE MODIFIED",
         });
         setModalOpen(true);
       }
@@ -97,7 +127,7 @@ export default function IncidentInvestigationPage() {
         target_host: alert.target_asset,
         blocked_ip: alert.source_ip,
         containment_type: "Host Isolation & IP Block",
-        safety_banner: res.safety_banner
+        safety_banner: res.safety_banner,
       });
       setModalOpen(true);
       const updatedAlert = await fetchAlertDetail(alertId);
@@ -119,8 +149,8 @@ export default function IncidentInvestigationPage() {
 
   if (!alert) {
     return (
-      <div className="flex items-center justify-center h-96 font-mono text-cyan-400">
-        Loading Incident Telemetry for {alertId}...
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 400, color: "var(--text-muted)", fontSize: 12 }}>
+        Loading incident telemetry for {alertId}…
       </div>
     );
   }
@@ -129,194 +159,205 @@ export default function IncidentInvestigationPage() {
     confidence: alert.status === "CONTAINED (SIMULATED)" ? 0.84 : 0.0,
     classification: alert.status === "CONTAINED (SIMULATED)" ? "MALICIOUS" : alert.status === "ESCALATED" ? "UNCERTAIN" : "PENDING",
     action: alert.status === "CONTAINED (SIMULATED)" ? "SIMULATED HOST ISOLATION" : alert.status === "ESCALATED" ? "ESCALATE TO HUMAN ANALYST" : "AWAITING INVESTIGATION",
-    decision_reason: "Evidence-gated pipeline awaiting execution or completed."
+    decision_reason: "Evidence-gated pipeline awaiting execution or completed.",
   };
 
+  const sev = severityStyle(alert.severity);
+
   return (
-    <div className="space-y-6 font-sans text-slate-200">
-      <ActionSimulationModal 
-        isOpen={modalOpen} 
-        onClose={() => setModalOpen(false)} 
-        actionDetails={modalDetails} 
+    <div style={{ maxWidth: 1100, display: "flex", flexDirection: "column", gap: 20 }}>
+      <ActionSimulationModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        actionDetails={modalDetails}
       />
 
-      {/* INCIDENT HEADER CARD */}
-      <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+      {/* ── Incident header ── */}
+      <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border-subtle)", borderRadius: 5, padding: "16px 20px" }}>
+        {/* Top row */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 14 }}>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-lg font-bold text-cyan-400">{alert.alert_id}</span>
-              <span className={`px-2.5 py-0.5 rounded text-xs font-mono font-bold ${
-                alert.severity === "CRITICAL" ? "bg-rose-950 text-rose-400 border border-rose-800" :
-                alert.severity === "HIGH" ? "bg-amber-950 text-amber-400 border border-amber-800" :
-                "bg-blue-950 text-cyan-400 border border-blue-800"
-              }`}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+              <span style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 700, color: "var(--accent-blue)" }}>
+                {alert.alert_id}
+              </span>
+              <span
+                style={{
+                  fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 3,
+                  background: sev.bg, border: `1px solid ${sev.border}`, color: sev.color,
+                }}
+              >
                 {alert.severity}
               </span>
-              <span className="px-2.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-xs">
-                Status: {alert.status}
+              <span
+                style={{
+                  fontSize: 10, padding: "2px 8px", borderRadius: 3,
+                  background: "var(--border-subtle)", border: "1px solid var(--border-default)", color: "var(--text-muted)",
+                }}
+              >
+                {alert.status}
               </span>
             </div>
-            <h1 className="text-xl font-bold text-slate-100 mt-1">{alert.type}</h1>
-            <p className="text-xs text-slate-400 font-sans mt-0.5">{alert.description}</p>
+            <h1 style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", margin: "0 0 4px" }}>{alert.type}</h1>
+            <p style={{ margin: 0, fontSize: 11, color: "var(--text-muted)", lineHeight: 1.5 }}>{alert.description}</p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "center" }}>
             <button
               onClick={handleStartInvestigation}
               disabled={isRunning}
-              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-xs font-mono flex items-center gap-2 shadow-lg shadow-cyan-950 transition-all"
+              className="btn-primary"
+              style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
             >
-              <Play className={`w-4 h-4 ${isRunning ? "animate-spin" : ""}`} />
-              {isRunning ? "Running Investigation..." : "Start Investigation"}
+              <Play style={{ width: 11, height: 11 }} />
+              {isRunning ? "Running…" : "Start Investigation"}
             </button>
             <button
               onClick={handleManualContainment}
-              className="px-4 py-2.5 rounded-xl bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 font-bold text-xs font-mono flex items-center gap-1.5"
+              className="btn-ghost"
+              style={{ display: "inline-flex", alignItems: "center", gap: 5, borderColor: "rgba(248,113,113,0.3)", color: "#f87171" }}
             >
-              <Lock className="w-3.5 h-3.5" /> Sim Contain
+              <Lock style={{ width: 11, height: 11 }} />
+              Sim Contain
             </button>
             <button
               onClick={handleManualEscalation}
-              className="px-4 py-2.5 rounded-xl bg-amber-950 hover:bg-amber-900 border border-amber-800 text-amber-300 font-bold text-xs font-mono flex items-center gap-1.5"
+              className="btn-ghost"
+              style={{ display: "inline-flex", alignItems: "center", gap: 5, borderColor: "rgba(251,191,36,0.3)", color: "#fbbf24" }}
             >
-              <AlertTriangle className="w-3.5 h-3.5" /> Escalate
+              <AlertTriangle style={{ width: 11, height: 11 }} />
+              Escalate
             </button>
           </div>
         </div>
 
-        {/* METADATA STRIP */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs font-mono pt-3 border-t border-slate-800">
-          <div><span className="text-slate-500">Source IP:</span> <span className="text-cyan-300 font-bold">{alert.source_ip}</span></div>
-          <div><span className="text-slate-500">Target Asset:</span> <span className="text-cyan-300 font-bold">{alert.target_asset}</span></div>
-          <div><span className="text-slate-500">User Context:</span> <span className="text-slate-200">{alert.user}</span></div>
-          <div><span className="text-slate-500">Timestamp:</span> <span className="text-slate-400">{alert.timestamp?.substring(0, 19)}</span></div>
+        {/* Metadata strip */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, paddingTop: 12, borderTop: "1px solid var(--border-subtle)" }}>
+          {[
+            { label: "Source IP", value: alert.source_ip, mono: true },
+            { label: "Target Asset", value: alert.target_asset, mono: true },
+            { label: "User Context", value: alert.user, mono: false },
+            { label: "Timestamp", value: alert.timestamp?.substring(0, 19), mono: true },
+          ].map(({ label, value, mono }) => (
+            <div key={label}>
+              <div style={{ fontSize: 9, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>{label}</div>
+              <div style={{ fontSize: 11, color: "var(--text-secondary)", fontFamily: mono ? "monospace" : undefined }}>{value}</div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* VISUAL INVESTIGATION PIPELINE */}
-      <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-bold text-sm text-slate-100 flex items-center gap-2 font-mono">
-            <Radio className="w-4 h-4 text-cyan-400" />
-            Evidence-Gated Investigation Pipeline
-          </h3>
-          <span className="text-xs text-slate-400 font-mono">10 Automated Verification Stages</span>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-10 gap-2 font-mono text-[11px]">
+      {/* ── Investigation pipeline ── */}
+      <Divider label="Evidence-Gated Investigation Pipeline" />
+      <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border-subtle)", borderRadius: 5, padding: "14px 16px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(10, 1fr)", gap: 4, fontSize: 10 }}>
           {PIPELINE_STEPS.map((step, idx) => {
-            const isDone = activeStepIndex >= idx || investigationData;
+            const isDone = activeStepIndex >= idx || Boolean(investigationData);
             const isActive = activeStepIndex === idx && isRunning;
             return (
-              <div 
-                key={step} 
-                className={`p-2.5 rounded-lg border text-center transition-all duration-200 ${
-                  isDone 
-                    ? "bg-cyan-950/60 border-cyan-800 text-cyan-300 shadow-sm shadow-cyan-950"
+              <div
+                key={step}
+                style={{
+                  padding: "8px 6px",
+                  borderRadius: 4,
+                  textAlign: "center",
+                  border: isDone
+                    ? "1px solid rgba(52,211,153,0.25)"
                     : isActive
-                    ? "bg-amber-950/80 border-amber-600 text-amber-300 animate-pulse"
-                    : "bg-slate-950 border-slate-800 text-slate-500"
-                }`}
+                    ? "1px solid rgba(251,191,36,0.4)"
+                    : "1px solid var(--border-subtle)",
+                  background: isDone
+                    ? "rgba(52,211,153,0.06)"
+                    : isActive
+                    ? "rgba(251,191,36,0.06)"
+                    : "var(--bg-elevated)",
+                  transition: "background 0.2s, border-color 0.2s",
+                }}
               >
-                <div className="text-[9px] font-bold opacity-60 mb-0.5">0{idx+1}</div>
-                <div className="font-semibold leading-tight text-[10px]">{step}</div>
-                {isDone && <CheckCircle2 className="w-3 h-3 text-emerald-400 mx-auto mt-1" />}
+                <div style={{ fontSize: 9, color: "var(--text-muted)", marginBottom: 3, fontFamily: "monospace" }}>
+                  {String(idx + 1).padStart(2, "0")}
+                </div>
+                <div style={{ fontSize: 9, fontWeight: 600, color: isDone ? "#34d399" : isActive ? "#fbbf24" : "var(--text-muted)", lineHeight: 1.3 }}>
+                  {step}
+                </div>
+                {isDone && (
+                  <CheckCircle2 style={{ width: 10, height: 10, color: "#34d399", margin: "3px auto 0" }} />
+                )}
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* INVESTIGATIVE TOOLS & EVIDENCE RESULTS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Tool 1: Log Lookup */}
-        <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3 font-mono">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-            <span className="font-bold text-xs text-cyan-400 flex items-center gap-1.5">
-              <Terminal className="w-4 h-4" /> Tool 1: Log Lookup
-            </span>
-            <span className="text-[10px] text-slate-500">28.5 ms</span>
-          </div>
-          <p className="text-xs text-slate-300 font-sans">
-            Searched SIEM archives for IP {alert.source_ip} on host {alert.target_asset}.
-          </p>
-          <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-slate-400 font-sans">
-            Detected 27 consecutive failed SSH authentication attempts within 5 minutes.
-          </div>
-          <div className="pt-1 flex items-center justify-between text-xs">
-            <span className="text-slate-400">Trust Level:</span>
-            <TrustBadge tier="CORROBORATED" weight={0.6} />
-          </div>
-        </div>
-
-        {/* Tool 2: Threat Intelligence */}
-        <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3 font-mono">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-            <span className="font-bold text-xs text-emerald-400 flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4" /> Tool 2: Threat Intelligence
-            </span>
-            <span className="text-[10px] text-slate-500">34.2 ms</span>
-          </div>
-          <p className="text-xs text-slate-300 font-sans">
-            Queried global threat intelligence database for {alert.source_ip}.
-          </p>
-          <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-slate-400 font-sans">
-            Reputation: Malicious (Score 92/100) | Known Campaign: Credential Stuffing & APT-41.
-          </div>
-          <div className="pt-1 flex items-center justify-between text-xs">
-            <span className="text-slate-400">Trust Level:</span>
-            <TrustBadge tier="VERIFIED" weight={1.0} />
-          </div>
-        </div>
-
-        {/* Tool 3: Asset Criticality */}
-        <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3 font-mono">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-            <span className="font-bold text-xs text-cyan-400 flex items-center gap-1.5">
-              <Layers className="w-4 h-4" /> Tool 3: Asset Criticality
-            </span>
-            <span className="text-[10px] text-slate-500">18.7 ms</span>
-          </div>
-          <p className="text-xs text-slate-300 font-sans">
-            Retrieved CMDB asset metadata for {alert.target_asset}.
-          </p>
-          <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-slate-400 font-sans">
-            Department: Finance & Billing | Criticality: Critical | Impact: Very High (PCI-DSS).
-          </div>
-          <div className="pt-1 flex items-center justify-between text-xs">
-            <span className="text-slate-400">Trust Level:</span>
-            <TrustBadge tier="CORROBORATED" weight={0.6} />
-          </div>
-        </div>
+      {/* ── Evidence tools ── */}
+      <Divider label="Investigative Tools & Evidence" />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+        <EvidenceToolCard
+          title="Tool 1 — Log Lookup"
+          latency="28.5 ms"
+          description={`Searched SIEM archives for IP ${alert.source_ip} on host ${alert.target_asset}.`}
+          finding="Detected 27 consecutive failed SSH authentication attempts within 5 minutes."
+          tier="CORROBORATED"
+          weight={0.6}
+        />
+        <EvidenceToolCard
+          title="Tool 2 — Threat Intelligence"
+          latency="34.2 ms"
+          description={`Queried global threat intelligence database for ${alert.source_ip}.`}
+          finding="Reputation: Malicious (Score 92/100) | Known Campaign: Credential Stuffing & APT-41."
+          tier="VERIFIED"
+          weight={1.0}
+        />
+        <EvidenceToolCard
+          title="Tool 3 — Asset Criticality"
+          latency="18.7 ms"
+          description={`Retrieved CMDB asset metadata for ${alert.target_asset}.`}
+          finding="Department: Finance & Billing | Criticality: Critical | Impact: Very High (PCI-DSS)."
+          tier="CORROBORATED"
+          weight={0.6}
+        />
       </div>
 
-      {/* CONFIDENCE & DECISION SECTION */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* ── Confidence & decision ── */}
+      <Divider label="Calibrated Confidence & Decision" />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <ConfidenceGauge confidence={decision.confidence} classification={decision.classification} />
 
-        <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-4 font-mono">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-            <span className="font-bold text-xs text-slate-300 uppercase tracking-wider">Structured Decision Rationale</span>
-            <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">
+        <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border-subtle)", borderRadius: 5, padding: "14px 16px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, paddingBottom: 10, borderBottom: "1px solid var(--border-subtle)" }}>
+            <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+              Structured Decision Rationale
+            </span>
+            <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 2, background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)", color: "#34d399", fontWeight: 600 }}>
               SIMULATION MODE
             </span>
           </div>
-
-          <div className="space-y-2 text-xs">
-            <div><span className="text-slate-500">Classification:</span> <span className="font-bold text-rose-400">{decision.classification}</span></div>
-            <div><span className="text-slate-500">Action:</span> <span className="font-bold text-slate-100">{decision.action}</span></div>
-            <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-slate-400 leading-relaxed font-sans">
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 9, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 4 }}>Classification</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: classStyle(decision.classification) }}>
+                  {decision.classification}
+                </div>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 9, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 4 }}>Action</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#d1dae8" }}>
+                  {decision.action}
+                </div>
+              </div>
+            </div>
+            <div style={{ fontSize: 11, color: "var(--text-muted)", background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", borderRadius: 4, padding: "8px 12px", lineHeight: 1.6 }}>
               {decision.decision_reason}
             </div>
           </div>
         </div>
       </div>
 
-      {/* INTERACTIVE EVIDENCE GRAPH */}
-      <EvidenceGraph 
-        alertId={alert.alert_id} 
-        alertType={alert.type} 
+      {/* ── Evidence graph ── */}
+      <EvidenceGraph
+        alertId={alert.alert_id}
+        alertType={alert.type}
         confidence={decision.confidence}
         decision={decision}
       />

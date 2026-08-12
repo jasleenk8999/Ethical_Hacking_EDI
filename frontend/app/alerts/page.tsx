@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldAlert, Upload, FileText, Sparkles, CheckCircle2, ArrowRight } from "lucide-react";
+import { Upload, RefreshCw, ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
 import { ingestAlert } from "@/lib/api";
 
 const SAMPLE_JSON = {
@@ -13,14 +13,26 @@ const SAMPLE_JSON = {
   target_asset: "FIN-SERVER-01",
   timestamp: "2026-08-11T10:30:00Z",
   description: "Multiple failed authentication attempts detected within 5-minute window.",
-  user: "admin"
+  user: "admin",
 };
+
+const SCHEMA_FIELDS = [
+  { field: "alert_id",       type: "string", note: "Auto-generated if not provided" },
+  { field: "type",           type: "string", note: "Alert category" },
+  { field: "severity",       type: "enum",   note: "LOW | MEDIUM | HIGH | CRITICAL" },
+  { field: "source_ip",      type: "string", note: "Originating IP address" },
+  { field: "destination_ip", type: "string", note: "Target IP (optional)" },
+  { field: "target_asset",   type: "string", note: "Affected asset hostname" },
+  { field: "timestamp",      type: "ISO8601",note: "UTC preferred" },
+  { field: "description",    type: "string", note: "Human-readable summary" },
+  { field: "user",           type: "string", note: "Associated user account" },
+];
 
 export default function AlertIngestionPage() {
   const router = useRouter();
-  const [jsonText, setJsonText] = useState(JSON.stringify(SAMPLE_JSON, null, 2));
-  const [ingesting, setIngesting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [jsonText, setJsonText]       = useState(JSON.stringify(SAMPLE_JSON, null, 2));
+  const [ingesting, setIngesting]     = useState(false);
+  const [errorMsg, setErrorMsg]       = useState("");
   const [successResult, setSuccessResult] = useState<any>(null);
 
   const handleIngest = async () => {
@@ -43,9 +55,7 @@ export default function AlertIngestionPage() {
     if (file) {
       const reader = new FileReader();
       reader.onload = (event) => {
-        if (event.target?.result) {
-          setJsonText(event.target.result as string);
-        }
+        if (event.target?.result) setJsonText(event.target.result as string);
       };
       reader.readAsText(file);
     }
@@ -53,109 +63,199 @@ export default function AlertIngestionPage() {
 
   const handleGenerateSample = () => {
     const randomId = `ALT-${Math.floor(100 + Math.random() * 900)}`;
-    const sample = {
-      id: randomId,
-      type: "Suspicious PowerShell Execution",
-      severity: "HIGH",
-      source_ip: `192.168.10.${Math.floor(Math.random() * 200)}`,
-      target_asset: "SEC-AUTH-DC01",
-      timestamp: new Date().toISOString(),
-      description: "Base64 encoded script execution detected by EDR telemetry.",
-      user: "sysadmin_svc"
-    };
-    setJsonText(JSON.stringify(sample, null, 2));
+    setJsonText(
+      JSON.stringify(
+        {
+          id: randomId,
+          type: "Suspicious PowerShell Execution",
+          severity: "HIGH",
+          source_ip: `192.168.10.${Math.floor(Math.random() * 200)}`,
+          target_asset: "SEC-AUTH-DC01",
+          timestamp: new Date().toISOString(),
+          description: "Base64 encoded script execution detected by EDR telemetry.",
+          user: "sysadmin_svc",
+        },
+        null,
+        2
+      )
+    );
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 font-sans text-slate-200">
-      <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-        <div>
-          <h1 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-            <ShieldAlert className="w-5 h-5 text-cyan-400" />
-            Heterogeneous Alert Ingestion
-          </h1>
-          <p className="text-xs text-slate-400 font-mono">Ingest, Normalize, and Register SOC Telemetry</p>
-        </div>
+    <div style={{ maxWidth: 960, display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* Header */}
+      <div style={{ paddingBottom: 14, borderBottom: "1px solid var(--border-subtle)" }}>
+        <h1 style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)", margin: 0 }}>
+          Alert Ingestion
+        </h1>
+        <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+          Submit a raw SOC alert payload. CAIRA will normalize it into the standard schema and register it for investigation.
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Editor Column */}
-        <div className="md:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-mono font-bold text-slate-300">JSON Payload Editor</span>
-            <div className="flex items-center gap-2 text-xs">
-              <button 
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 16, alignItems: "start" }}>
+        {/* Left — editor + action */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {/* Toolbar */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)" }}>JSON Payload</span>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button
                 onClick={handleGenerateSample}
-                className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 font-mono text-[11px] flex items-center gap-1"
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  padding: "4px 10px", borderRadius: 4, fontSize: 11, cursor: "pointer",
+                  background: "var(--bg-surface)", border: "1px solid var(--border-default)", color: "var(--text-muted)",
+                  transition: "color 0.12s",
+                }}
               >
-                <Sparkles className="w-3 h-3" /> Generate Sample
+                <RefreshCw style={{ width: 11, height: 11 }} /> Generate Sample
               </button>
-              <label className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-[11px] cursor-pointer flex items-center gap-1">
-                <Upload className="w-3 h-3 text-cyan-400" /> Upload File
-                <input type="file" accept=".json" onChange={handleFileUpload} className="hidden" />
+              <label
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  padding: "4px 10px", borderRadius: 4, fontSize: 11, cursor: "pointer",
+                  background: "var(--bg-surface)", border: "1px solid var(--border-default)", color: "var(--text-muted)",
+                }}
+              >
+                <Upload style={{ width: 11, height: 11 }} /> Upload File
+                <input type="file" accept=".json" onChange={handleFileUpload} style={{ display: "none" }} />
               </label>
             </div>
           </div>
 
+          {/* Textarea */}
           <textarea
             value={jsonText}
             onChange={(e) => setJsonText(e.target.value)}
-            rows={12}
-            className="w-full p-4 rounded-xl bg-slate-950 border border-slate-800 text-cyan-300 font-mono text-xs outline-none focus:border-cyan-500 transition-colors custom-scrollbar"
+            rows={14}
+            style={{
+              width: "100%",
+              padding: "12px 14px",
+              borderRadius: 4,
+              background: "var(--bg-elevated)",
+              border: "1px solid var(--border-subtle)",
+              color: "var(--text-secondary)",
+              fontFamily: "monospace",
+              fontSize: 12,
+              outline: "none",
+              resize: "vertical",
+              lineHeight: 1.6,
+              boxSizing: "border-box",
+            }}
+            onFocus={(e) => (e.target.style.borderColor = "var(--accent-blue)")}
+            onBlur={(e) => (e.target.style.borderColor = "var(--border-subtle)")}
             placeholder="Paste raw SOC alert JSON here..."
           />
 
+          {/* Error */}
           {errorMsg && (
-            <div className="p-3 rounded-lg bg-rose-950/60 border border-rose-800 text-rose-300 text-xs font-mono">
-              ✗ Error: {errorMsg}
+            <div
+              style={{
+                display: "flex", alignItems: "flex-start", gap: 8,
+                padding: "10px 12px", borderRadius: 4,
+                background: "rgba(248,113,113,0.07)", border: "1px solid rgba(248,113,113,0.2)",
+                color: "#f87171", fontSize: 12,
+              }}
+            >
+              <AlertCircle style={{ width: 14, height: 14, flexShrink: 0, marginTop: 1 }} />
+              {errorMsg}
             </div>
           )}
 
+          {/* Submit */}
           <button
             onClick={handleIngest}
             disabled={ingesting}
-            className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-cyan-950 transition-all"
+            style={{
+              padding: "9px 18px",
+              borderRadius: 4,
+              background: ingesting ? "#0f1d38" : "var(--accent-blue-dim)",
+              border: "1px solid var(--accent-blue)",
+              color: ingesting ? "var(--text-muted)" : "var(--accent-blue)",
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: ingesting ? "not-allowed" : "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              transition: "background 0.15s",
+              alignSelf: "flex-start",
+            }}
           >
-            {ingesting ? "Normalizing & Registering..." : "Normalize & Ingest Alert"}
+            {ingesting ? "Normalizing & Registering…" : "Normalize & Ingest Alert"}
           </button>
-        </div>
 
-        {/* Normalization Standard Fields info */}
-        <div className="space-y-4">
-          <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3 font-mono">
-            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Normalization Schema</h3>
-            <p className="text-[11px] text-slate-400 font-sans leading-relaxed">
-              Heterogeneous alert payloads are normalized into CAIRA&apos;s standard schema:
-            </p>
-            <div className="space-y-1.5 text-xs text-cyan-400">
-              <div>• alert_id</div>
-              <div>• alert_type</div>
-              <div>• severity (LOW|MED|HIGH|CRIT)</div>
-              <div>• source_ip</div>
-              <div>• destination_ip</div>
-              <div>• target_asset</div>
-              <div>• timestamp</div>
-              <div>• description</div>
-            </div>
-          </div>
-
+          {/* Success */}
           {successResult && (
-            <div className="p-4 rounded-xl bg-emerald-950/40 border border-emerald-800 space-y-3 font-mono">
-              <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
-                <CheckCircle2 className="w-4 h-4" /> Alert Ingested & Normalized!
+            <div
+              style={{
+                padding: "12px 14px",
+                borderRadius: 4,
+                background: "rgba(52,211,153,0.07)",
+                border: "1px solid rgba(52,211,153,0.2)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                <CheckCircle2 style={{ width: 14, height: 14, color: "#34d399" }} />
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#34d399" }}>Alert registered successfully</span>
               </div>
-              <div className="text-xs text-slate-300">
-                <div>ID: <span className="text-cyan-400 font-bold">{successResult.alert_id}</span></div>
-                <div>Status: <span className="text-emerald-400">{successResult.status}</span></div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 10 }}>
+                <span style={{ color: "var(--text-muted)" }}>ID: </span>
+                <span style={{ fontFamily: "monospace", color: "var(--text-secondary)", fontWeight: 600 }}>{successResult.alert_id}</span>
+                {"  "}
+                <span style={{ color: "var(--text-muted)" }}>Status: </span>
+                <span style={{ color: "#34d399" }}>{successResult.status}</span>
               </div>
               <button
                 onClick={() => router.push(`/investigate/${successResult.alert_id}`)}
-                className="w-full py-2 rounded bg-emerald-900 hover:bg-emerald-800 text-emerald-200 text-xs font-bold flex items-center justify-center gap-1"
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  padding: "6px 12px", borderRadius: 4,
+                  background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.25)",
+                  color: "#34d399", fontSize: 11, fontWeight: 600, cursor: "pointer",
+                }}
               >
-                Start Investigation Pipeline <ArrowRight className="w-3 h-3" />
+                Start Investigation <ArrowRight style={{ width: 11, height: 11 }} />
               </button>
             </div>
           )}
+        </div>
+
+        {/* Right — schema reference */}
+        <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border-subtle)", borderRadius: 5, overflow: "hidden" }}>
+          <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border-subtle)", background: "var(--bg-elevated)" }}>
+            <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+              Normalization Schema
+            </span>
+          </div>
+          <div style={{ padding: "4px 0" }}>
+            <p style={{ fontSize: 11, color: "var(--text-muted)", padding: "8px 14px 4px", lineHeight: 1.5, margin: 0 }}>
+              Payloads are normalized into CAIRA's standard schema before storage.
+            </p>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+              <tbody>
+                {SCHEMA_FIELDS.map((f, i) => (
+                  <tr
+                    key={f.field}
+                    className="data-row"
+                    style={{ borderTop: i > 0 ? "1px solid var(--bg-surface)" : "none" }}
+                  >
+                    <td style={{ padding: "6px 14px", fontFamily: "monospace", color: "var(--accent-blue)", fontWeight: 600, whiteSpace: "nowrap" }}>
+                      {f.field}
+                    </td>
+                    <td style={{ padding: "6px 6px", color: "var(--text-muted)", fontSize: 10, whiteSpace: "nowrap" }}>
+                      {f.type}
+                    </td>
+                    <td style={{ padding: "6px 14px 6px 0", color: "var(--text-muted)", lineHeight: 1.4 }}>
+                      {f.note}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

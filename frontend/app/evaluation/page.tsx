@@ -1,11 +1,37 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle2, Play, AlertTriangle, Sparkles, BarChart3, ShieldCheck, Flame } from "lucide-react";
+import { Play, CheckCircle2, AlertTriangle, BarChart3, Sparkles, ShieldCheck } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import MetricCard from "@/components/MetricCard";
 import { fetchEvaluationResults, runEvaluationHarness } from "@/lib/api";
 
+// ─── Divider ──────────────────────────────────────────────────────────────────
+function Divider({ label }: { label: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+      <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", whiteSpace: "nowrap" }}>
+        {label}
+      </span>
+      <div style={{ flex: 1, height: 1, background: "var(--border-subtle)" }} />
+    </div>
+  );
+}
+
+// ─── Classification badge ─────────────────────────────────────────────────────
+function ClsBadge({ cls }: { cls: string }) {
+  const style =
+    cls === "MALICIOUS" ? { color: "#f87171", bg: "rgba(248,113,113,0.1)", border: "rgba(248,113,113,0.25)" } :
+    cls === "UNCERTAIN" ? { color: "#fbbf24", bg: "rgba(251,191,36,0.1)",  border: "rgba(251,191,36,0.25)"  } :
+                          { color: "#34d399", bg: "rgba(52,211,153,0.1)",  border: "rgba(52,211,153,0.25)"  };
+  return (
+    <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 3, background: style.bg, border: `1px solid ${style.border}`, color: style.color }}>
+      {cls}
+    </span>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
 export default function EvaluationHarnessPage() {
   const [evalData, setEvalData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -13,19 +39,11 @@ export default function EvaluationHarnessPage() {
 
   const loadResults = () => {
     fetchEvaluationResults()
-      .then(data => {
-        setEvalData(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error("Error loading evaluation data:", err);
-        setLoading(false);
-      });
+      .then((data) => { setEvalData(data); setLoading(false); })
+      .catch((err) => { console.error("Error loading evaluation data:", err); setLoading(false); });
   };
 
-  useEffect(() => {
-    loadResults();
-  }, []);
+  useEffect(() => { loadResults(); }, []);
 
   const handleRunEvaluation = async () => {
     setRunning(true);
@@ -44,101 +62,133 @@ export default function EvaluationHarnessPage() {
   const baselineMetrics = evalData?.baseline_metrics || { egar: 0.25, fp_rate: 0.38, audit_completeness: 0.40, traceability: 0.30, avg_confidence: 0.82, avg_ttfc: 0.1 };
 
   const benchmarkChartData = [
-    { metric: "EGAR Rate", CAIRA: (cairaMetrics.egar * 100), Baseline: (baselineMetrics.egar * 100) },
-    { metric: "False Positive %", CAIRA: (cairaMetrics.fp_rate * 100), Baseline: (baselineMetrics.fp_rate * 100) },
-    { metric: "Audit Completeness", CAIRA: (cairaMetrics.audit_completeness * 100), Baseline: (baselineMetrics.audit_completeness * 100) },
-    { metric: "Traceability Score", CAIRA: (cairaMetrics.traceability * 100), Baseline: (baselineMetrics.traceability * 100) },
+    { metric: "EGAR Rate",         CAIRA: cairaMetrics.egar * 100,             Baseline: baselineMetrics.egar * 100 },
+    { metric: "FP Rate",           CAIRA: cairaMetrics.fp_rate * 100,          Baseline: baselineMetrics.fp_rate * 100 },
+    { metric: "Audit Completeness",CAIRA: cairaMetrics.audit_completeness * 100, Baseline: baselineMetrics.audit_completeness * 100 },
+    { metric: "Traceability",      CAIRA: cairaMetrics.traceability * 100,     Baseline: baselineMetrics.traceability * 100 },
   ];
 
-  return (
-    <div className="space-y-6 font-sans text-slate-200">
-      <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-        <div>
-          <h1 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-            <CheckCircle2 className="w-5 h-5 text-cyan-400" />
-            Adversarial Evaluation Harness & Benchmark
-          </h1>
-          <p className="text-xs text-slate-400 font-mono">Robustness Testing Across 8 Manipulated & Conflicting Scenarios</p>
-        </div>
+  const tooltipStyle = { backgroundColor: "var(--bg-elevated)", borderColor: "var(--border-subtle)", fontSize: 11 };
 
+  return (
+    <div style={{ maxWidth: 1000, display: "flex", flexDirection: "column", gap: 20 }}>
+
+      {/* ── Page header ── */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", paddingBottom: 16, borderBottom: "1px solid var(--border-subtle)" }}>
+        <div>
+          <h1 style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.01em" }}>
+            Adversarial Evaluation Harness
+          </h1>
+          <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+            Robustness testing across 8 manipulated and conflicting scenarios
+          </p>
+        </div>
         <button
           onClick={handleRunEvaluation}
           disabled={running}
-          className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-xs font-mono flex items-center gap-2 shadow-lg shadow-cyan-950 transition-all"
+          className="btn-primary"
+          style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
         >
-          <Play className={`w-4 h-4 ${running ? "animate-spin" : ""}`} />
-          {running ? "Running Evaluation Suite..." : "Run Evaluation Suite"}
+          <Play style={{ width: 11, height: 11 }} />
+          {running ? "Running Evaluation Suite…" : "Run Evaluation Suite"}
         </button>
       </div>
 
-      {/* METRICS CARDS */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-        <MetricCard title="EGAR Score" value={`${(cairaMetrics.egar * 100).toFixed(0)}%`} icon={CheckCircle2} color="emerald" badge="100% Gated" />
-        <MetricCard title="False Positive" value={`${(cairaMetrics.fp_rate * 100).toFixed(0)}%`} icon={AlertTriangle} color="emerald" badge="Zero FP" />
+      {/* ── Metrics strip ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 10 }}>
+        <MetricCard title="EGAR Score"    value={`${(cairaMetrics.egar * 100).toFixed(0)}%`}          icon={CheckCircle2} color="emerald" badge="100% Gated" />
+        <MetricCard title="False Positive" value={`${(cairaMetrics.fp_rate * 100).toFixed(0)}%`}       icon={AlertTriangle} color="emerald" badge="Zero FP" />
         <MetricCard title="Audit Complete" value={`${(cairaMetrics.audit_completeness * 100).toFixed(0)}%`} icon={ShieldCheck} color="purple" />
-        <MetricCard title="Traceability" value={`${(cairaMetrics.traceability * 100).toFixed(0)}%`} icon={Sparkles} color="cyan" />
-        <MetricCard title="TTFC Speed" value={`${cairaMetrics.avg_ttfc.toFixed(1)}s`} icon={BarChart3} color="indigo" />
-        <MetricCard title="Blast Radius" value="Low" icon={CheckCircle2} color="emerald" />
+        <MetricCard title="Traceability"  value={`${(cairaMetrics.traceability * 100).toFixed(0)}%`}  icon={Sparkles}     color="cyan"    />
+        <MetricCard title="TTFC Speed"    value={`${cairaMetrics.avg_ttfc.toFixed(1)}s`}               icon={BarChart3}    color="indigo"  />
+        <MetricCard title="Blast Radius"  value="Low"                                                  icon={CheckCircle2} color="emerald" />
       </div>
 
-      {/* BENCHMARK COMPARISON CHART */}
-      <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4 font-mono">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Baseline Agent vs CAIRA Benchmark</span>
-          <span className="text-xs text-cyan-400 font-bold">Evidence-Gated AI vs Hasty Heuristic Baseline</span>
+      {/* ── Benchmark comparison chart ── */}
+      <Divider label="CAIRA vs Baseline Benchmark" />
+      <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border-subtle)", borderRadius: 5, padding: "16px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+          <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>Evidence-Gated AI vs Hasty Heuristic Baseline</span>
+          <span style={{ fontSize: 10, color: "var(--text-muted)" }}>Values as %</span>
         </div>
-
-        <div className="h-64">
+        <div style={{ height: 220 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={benchmarkChartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-              <XAxis dataKey="metric" stroke="#64748b" fontSize={11} />
-              <YAxis stroke="#64748b" fontSize={11} domain={[0, 100]} />
-              <Tooltip contentStyle={{ backgroundColor: "#0f172a", borderColor: "#334155" }} />
-              <Legend />
-              <Bar dataKey="CAIRA" fill="#06b6d4" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Baseline" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+            <BarChart data={benchmarkChartData} margin={{ top: 4, right: 8, left: -8, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="2 4" stroke="#1a1e28" />
+              <XAxis dataKey="metric" stroke="var(--text-muted)" fontSize={10} tick={{ fill: "var(--text-muted)" }} />
+              <YAxis stroke="var(--text-muted)" fontSize={10} tick={{ fill: "var(--text-muted)" }} domain={[0, 100]} />
+              <Tooltip contentStyle={tooltipStyle} />
+              <Legend wrapperStyle={{ fontSize: 11, color: "var(--text-muted)" }} />
+              <Bar dataKey="CAIRA"    fill="var(--accent-blue)" radius={[2, 2, 0, 0]} />
+              <Bar dataKey="Baseline" fill="#fbbf24" radius={[2, 2, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* 8 PREDEFINED SCENARIOS BENCHMARK TABLE */}
-      <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4 font-mono">
-        <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Evaluation Scenario Results</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
+      {/* ── Scenario results table ── */}
+      <Divider label="Evaluation Scenario Results" />
+      <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border-subtle)", borderRadius: 5, overflow: "hidden" }}>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead>
-              <tr className="border-b border-slate-800 text-slate-400 text-[10px] uppercase">
-                <th className="py-2.5 px-3">Scenario ID</th>
-                <th className="py-2.5 px-3">Scenario Name</th>
-                <th className="py-2.5 px-3">Confidence</th>
-                <th className="py-2.5 px-3">Predicted Class</th>
-                <th className="py-2.5 px-3">Expected Class</th>
-                <th className="py-2.5 px-3">Action Selected</th>
-                <th className="py-2.5 px-3 text-right">EGAR</th>
+              <tr style={{ borderBottom: "1px solid var(--border-subtle)", background: "var(--bg-elevated)" }}>
+                {["Scenario ID", "Scenario Name", "Confidence", "Predicted", "Expected", "Action", "EGAR"].map((h) => (
+                  <th
+                    key={h}
+                    style={{
+                      padding: "8px 14px",
+                      textAlign: "left",
+                      fontSize: 10,
+                      fontWeight: 600,
+                      color: "var(--text-muted)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800">
-              {(evalData?.scenarios || []).map((sc: any) => (
-                <tr key={sc.id} className="hover:bg-slate-800/50">
-                  <td className="py-3 px-3 font-bold text-cyan-400">{sc.scenario_id}</td>
-                  <td className="py-3 px-3 font-semibold text-slate-200">{sc.scenario_name}</td>
-                  <td className="py-3 px-3 text-cyan-300 font-bold">{sc.confidence.toFixed(2)}</td>
-                  <td className="py-3 px-3">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                      sc.predicted === "MALICIOUS" ? "bg-rose-950 text-rose-400 border border-rose-800" :
-                      sc.predicted === "UNCERTAIN" ? "bg-amber-950 text-amber-400 border border-amber-800" :
-                      "bg-emerald-950 text-emerald-400 border border-emerald-800"
-                    }`}>
-                      {sc.predicted}
-                    </span>
+            <tbody>
+              {(evalData?.scenarios || []).map((sc: any, idx: number) => (
+                <tr
+                  key={sc.id}
+                  className="data-row"
+                  style={{ borderBottom: "1px solid var(--bg-surface)" }}
+                >
+                  <td style={{ padding: "9px 14px", fontFamily: "monospace", fontSize: 11, fontWeight: 700, color: "var(--accent-blue)" }}>
+                    {sc.scenario_id}
                   </td>
-                  <td className="py-3 px-3 text-slate-400">{sc.expected}</td>
-                  <td className="py-3 px-3 text-slate-300 text-[11px]">{sc.action}</td>
-                  <td className="py-3 px-3 text-right text-emerald-400 font-bold">{(sc.egar * 100).toFixed(0)}%</td>
+                  <td style={{ padding: "9px 14px", fontWeight: 600, color: "var(--text-primary)" }}>
+                    {sc.scenario_name}
+                  </td>
+                  <td style={{ padding: "9px 14px", fontFamily: "monospace", fontWeight: 700, color: "var(--text-secondary)" }}>
+                    {sc.confidence.toFixed(2)}
+                  </td>
+                  <td style={{ padding: "9px 14px" }}>
+                    <ClsBadge cls={sc.predicted} />
+                  </td>
+                  <td style={{ padding: "9px 14px", fontSize: 11, color: "var(--text-muted)" }}>
+                    {sc.expected}
+                  </td>
+                  <td style={{ padding: "9px 14px", fontSize: 11, color: "var(--text-muted)" }}>
+                    {sc.action}
+                  </td>
+                  <td style={{ padding: "9px 14px", fontFamily: "monospace", fontWeight: 700, color: "#34d399" }}>
+                    {(sc.egar * 100).toFixed(0)}%
+                  </td>
                 </tr>
               ))}
+              {(!evalData?.scenarios || evalData.scenarios.length === 0) && (
+                <tr>
+                  <td colSpan={7} style={{ padding: "28px 14px", textAlign: "center", color: "var(--text-muted)", fontSize: 12 }}>
+                    No evaluation data. Run the evaluation suite to populate results.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

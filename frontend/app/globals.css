@@ -1,27 +1,151 @@
 @import "tailwindcss";
 
 @layer base {
+  :root {
+    --bg-base: #f8f9fa;
+    --bg-surface: #ffffff;
+    --bg-elevated: #f0f4f8;
+    --bg-highlight: #e5e7eb;
+    --border-subtle: #f1f3f5;
+    --border-default: #e5e7eb;
+    --text-primary: #1f2937;
+    --text-secondary: #4b5563;
+    --text-muted: #6b7280;
+    --accent-blue: #2563eb;
+    --accent-blue-dim: #eff6ff;
+    --accent-red: #ef4444;
+    --accent-amber: #f59e0b;
+    --accent-green: #10b981;
+    --accent-purple: #8b5cf6;
+  }
+
   body {
-    background-color: #020617;
-    color: #f8fafc;
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  * {
+    box-sizing: border-box;
   }
 }
 
-/* Custom scrollbars for dark SOC aesthetic */
-.custom-scrollbar::-webkit-scrollbar {
+/* Scrollbar */
+::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
-
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: #090d16;
+::-webkit-scrollbar-track {
+  background: var(--bg-base);
 }
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #1e293b;
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
   border-radius: 4px;
 }
-
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #0891b2;
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-blue);
 }
+
+/* Data table rows */
+.data-row {
+  transition: background-color 0.12s ease;
+}
+.data-row:hover {
+  background-color: var(--bg-elevated);
+}
+
+/* Status pulse */
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.status-live {
+  animation: status-pulse 2s ease-in-out infinite;
+}
+
+/* Metric card hover */
+.metric-card {
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+.metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+/* Nav link */
+.nav-link {
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+/* Severity badges */
+.badge-critical { background: rgba(239, 68, 68, 0.1); color: #dc2626; border: 1px solid rgba(239, 68, 68, 0.2); }
+.badge-high     { background: rgba(245, 158, 11, 0.1);  color: #d97706; border: 1px solid rgba(245, 158, 11, 0.2);  }
+.badge-medium   { background: rgba(59, 130, 246, 0.1);  color: #2563eb; border: 1px solid rgba(59, 130, 246, 0.2);  }
+.badge-low      { background: rgba(16, 185, 129, 0.1);  color: #059669; border: 1px solid rgba(16, 185, 129, 0.2);  }
+
+/* Panel / card */
+.panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.panel-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Input fields */
+.field {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  color: var(--text-primary);
+  padding: 8px 12px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.field:focus {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 2px var(--accent-blue-dim);
+}
+
+/* Btn styles */
+.btn-primary {
+  background: var(--accent-blue);
+  border: 1px solid transparent;
+  color: #ffffff;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.btn-primary:hover {
+  background: #1d4ed8;
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+}
+
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.btn-ghost:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
+}
+

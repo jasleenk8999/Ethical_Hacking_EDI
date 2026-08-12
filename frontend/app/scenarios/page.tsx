@@ -1,9 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { FlaskConical, Plus, Sparkles, CheckCircle2 } from "lucide-react";
+import { Plus, CheckCircle2 } from "lucide-react";
 import { createScenario } from "@/lib/api";
 
+// ─── Field row ────────────────────────────────────────────────────────────────
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label style={{ display: "block", fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
 export default function ScenariosPage() {
   const [name, setName] = useState("Custom Adversarial Injection");
   const [alertType, setAlertType] = useState("Conflicting Telemetry");
@@ -26,7 +39,7 @@ export default function ScenariosPage() {
         source_ip: sourceIp,
         target_asset: targetAsset,
         expected_result: expectedResult,
-        description: `Custom test scenario evaluating ${alertType} against ${targetAsset}.`
+        description: `Custom test scenario evaluating ${alertType} against ${targetAsset}.`,
       });
       setSuccess(true);
     } catch (err) {
@@ -37,61 +50,110 @@ export default function ScenariosPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 font-sans text-slate-200">
-      <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-        <div>
-          <h1 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-            <FlaskConical className="w-5 h-5 text-cyan-400" />
-            Adversarial Scenario Generator
-          </h1>
-          <p className="text-xs text-slate-400 font-mono">Create Edge-Case & Adversarial Test Scenarios</p>
-        </div>
+    <div style={{ maxWidth: 720, display: "flex", flexDirection: "column", gap: 20 }}>
+
+      {/* ── Page header ── */}
+      <div style={{ paddingBottom: 16, borderBottom: "1px solid var(--border-subtle)" }}>
+        <h1 style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.01em" }}>
+          Adversarial Scenario Generator
+        </h1>
+        <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+          Create edge-case and adversarial test scenarios for the evaluation harness
+        </p>
       </div>
 
-      <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4 font-mono">
-        <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Scenario Generator Parameters</h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-          <div>
-            <label className="text-slate-400">Scenario Name:</label>
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full p-2.5 rounded bg-slate-950 border border-slate-800 text-slate-200 outline-none mt-1" />
-          </div>
-          <div>
-            <label className="text-slate-400">Alert Type:</label>
-            <input type="text" value={alertType} onChange={(e) => setAlertType(e.target.value)} className="w-full p-2.5 rounded bg-slate-950 border border-slate-800 text-slate-200 outline-none mt-1" />
-          </div>
-          <div>
-            <label className="text-slate-400">Severity:</label>
-            <select value={severity} onChange={(e) => setSeverity(e.target.value)} className="w-full p-2.5 rounded bg-slate-950 border border-slate-800 text-slate-200 outline-none mt-1">
-              <option value="CRITICAL">CRITICAL</option>
-              <option value="HIGH">HIGH</option>
-              <option value="MEDIUM">MEDIUM</option>
-              <option value="LOW">LOW</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-slate-400">Expected Classification:</label>
-            <select value={expectedResult} onChange={(e) => setExpectedResult(e.target.value)} className="w-full p-2.5 rounded bg-slate-950 border border-slate-800 text-slate-200 outline-none mt-1">
-              <option value="MALICIOUS">MALICIOUS</option>
-              <option value="UNCERTAIN">UNCERTAIN</option>
-              <option value="BENIGN">BENIGN</option>
-            </select>
-          </div>
+      {/* ── Form panel ── */}
+      <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border-subtle)", borderRadius: 5 }}>
+        <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border-subtle)", background: "var(--bg-elevated)" }}>
+          <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+            Scenario Parameters
+          </span>
         </div>
 
-        <button
-          onClick={handleCreate}
-          disabled={creating}
-          className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-cyan-950 transition-all flex items-center justify-center gap-2"
-        >
-          <Plus className="w-4 h-4" /> {creating ? "Generating Scenario..." : "Generate Test Scenario"}
-        </button>
-
-        {success && (
-          <div className="p-3 rounded-lg bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs font-mono flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Scenario generated and added to evaluation benchmark suite!
+        <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <Field label="Scenario Name">
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="field"
+                style={{ width: "100%", boxSizing: "border-box" }}
+              />
+            </Field>
+            <Field label="Alert Type">
+              <input
+                type="text"
+                value={alertType}
+                onChange={(e) => setAlertType(e.target.value)}
+                className="field"
+                style={{ width: "100%", boxSizing: "border-box" }}
+              />
+            </Field>
+            <Field label="Severity">
+              <select
+                value={severity}
+                onChange={(e) => setSeverity(e.target.value)}
+                className="field"
+                style={{ width: "100%", boxSizing: "border-box" }}
+              >
+                <option value="CRITICAL">CRITICAL</option>
+                <option value="HIGH">HIGH</option>
+                <option value="MEDIUM">MEDIUM</option>
+                <option value="LOW">LOW</option>
+              </select>
+            </Field>
+            <Field label="Expected Classification">
+              <select
+                value={expectedResult}
+                onChange={(e) => setExpectedResult(e.target.value)}
+                className="field"
+                style={{ width: "100%", boxSizing: "border-box" }}
+              >
+                <option value="MALICIOUS">MALICIOUS</option>
+                <option value="UNCERTAIN">UNCERTAIN</option>
+                <option value="BENIGN">BENIGN</option>
+              </select>
+            </Field>
+            <Field label="Source IP">
+              <input
+                type="text"
+                value={sourceIp}
+                onChange={(e) => setSourceIp(e.target.value)}
+                className="field"
+                style={{ width: "100%", boxSizing: "border-box", fontFamily: "monospace" }}
+              />
+            </Field>
+            <Field label="Target Asset">
+              <input
+                type="text"
+                value={targetAsset}
+                onChange={(e) => setTargetAsset(e.target.value)}
+                className="field"
+                style={{ width: "100%", boxSizing: "border-box", fontFamily: "monospace" }}
+              />
+            </Field>
           </div>
-        )}
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button
+              onClick={handleCreate}
+              disabled={creating}
+              className="btn-primary"
+              style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+            >
+              <Plus style={{ width: 12, height: 12 }} />
+              {creating ? "Generating…" : "Generate Test Scenario"}
+            </button>
+
+            {success && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#34d399" }}>
+                <CheckCircle2 style={{ width: 13, height: 13 }} />
+                Scenario added to evaluation benchmark suite
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

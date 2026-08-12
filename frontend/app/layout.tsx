@@ -4,26 +4,44 @@ import Sidebar from "@/components/Sidebar";
 import Topbar from "@/components/Topbar";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
-const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+});
+const mono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
-  title: "CAIRA — Confidence-aware Adaptive Incident Response Agent",
-  description: "Evidence-gated AI cybersecurity incident response and evaluation platform for SOCs.",
+  title: "CAIRA — SOC Incident Response Agent",
+  description:
+    "Evidence-gated AI cybersecurity incident response platform for Security Operations Centers.",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`dark ${inter.variable} ${mono.variable}`}>
-      <body className="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen flex selection:bg-cyan-500 selection:text-slate-950">
+    <html lang="en" className={`${inter.variable} ${mono.variable}`}>
+      <body
+        style={{
+          backgroundColor: "var(--bg-base)",
+          color: "var(--text-primary)",
+          fontFamily: "var(--font-sans), Inter, system-ui, sans-serif",
+          margin: 0,
+          padding: 0,
+          minHeight: "100vh",
+          display: "flex",
+          overflowX: "hidden",
+        }}
+      >
         <Sidebar />
-        <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: "100vh" }}>
           <Topbar />
-          <main className="flex-1 p-6 overflow-y-auto">
+          <main style={{ flex: 1, padding: "24px 28px", overflowY: "auto" }}>
             {children}
           </main>
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Download, FileSpreadsheet, CheckCircle2 } from "lucide-react";
+import { FileText, Download, FileSpreadsheet } from "lucide-react";
 import { getReportDownloadUrl } from "@/lib/api";
 
 const REPORTS = [
@@ -8,67 +8,94 @@ const REPORTS = [
     type: "incident",
     title: "SOC Incident Investigation Report",
     desc: "Export summary of all ingested alerts, tool lookups, confidence scores, classifications, and actions taken.",
-    icon: FileText
+    icon: FileText,
   },
   {
     type: "evaluation",
     title: "Adversarial Evaluation Report",
     desc: "Export evaluation benchmark scores, EGAR metrics, false positive rates, TTFC speeds, and baseline agent comparisons.",
-    icon: FileSpreadsheet
+    icon: FileSpreadsheet,
   },
   {
     type: "audit",
-    title: "Tamper-Evident SHA-256 Audit Report",
+    title: "SHA-256 Audit Chain Report",
     desc: "Export complete cryptographic hash chain audit records, block IDs, previous hashes, current hashes, and integrity status.",
-    icon: FileText
+    icon: FileText,
   },
   {
     type: "scenarios",
     title: "Test Scenario Configuration Report",
     desc: "Export list of predefined and custom adversarial test scenarios with expected classification benchmarks.",
-    icon: FileSpreadsheet
-  }
+    icon: FileSpreadsheet,
+  },
 ];
 
 export default function ReportsPage() {
   return (
-    <div className="max-w-4xl mx-auto space-y-6 font-sans text-slate-200">
-      <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-        <div>
-          <h1 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-            <FileText className="w-5 h-5 text-cyan-400" />
-            Report Generation & Research Exports
-          </h1>
-          <p className="text-xs text-slate-400 font-mono">Download Formatted Incident, Audit, and Evaluation Reports</p>
-        </div>
+    <div style={{ maxWidth: 860, display: "flex", flexDirection: "column", gap: 20 }}>
+
+      {/* ── Page header ── */}
+      <div style={{ paddingBottom: 16, borderBottom: "1px solid var(--border-subtle)" }}>
+        <h1 style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.01em" }}>
+          Report Generation &amp; Research Exports
+        </h1>
+        <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+          Download formatted incident, audit, and evaluation reports as CSV
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {REPORTS.map(rep => {
+      {/* ── Report list ── */}
+      <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border-subtle)", borderRadius: 5, overflow: "hidden" }}>
+        {REPORTS.map((rep, idx) => {
           const Icon = rep.icon;
           return (
-            <div key={rep.type} className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4 font-mono">
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-xl bg-cyan-950 text-cyan-400 border border-cyan-800">
-                  <Icon className="w-6 h-6" />
+            <div
+              key={rep.type}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 16,
+                padding: "16px 20px",
+                borderBottom: idx < REPORTS.length - 1 ? "1px solid var(--border-subtle)" : "none",
+              }}
+            >
+              {/* Icon */}
+              <div
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 4,
+                  background: "rgba(59,130,246,0.08)",
+                  border: "1px solid rgba(59,130,246,0.2)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <Icon style={{ width: 15, height: 15, color: "var(--accent-blue)" }} />
+              </div>
+
+              {/* Text */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#d1dae8", marginBottom: 3 }}>
+                  {rep.title}
                 </div>
-                <div>
-                  <h3 className="font-bold text-sm text-slate-100">{rep.title}</h3>
-                  <span className="text-[10px] text-slate-500 uppercase">CSV / Data Export</span>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.5 }}>
+                  {rep.desc}
                 </div>
               </div>
 
-              <p className="text-xs text-slate-400 font-sans leading-relaxed">{rep.desc}</p>
-
-              <div className="pt-2 flex items-center gap-2">
-                <a
-                  href={getReportDownloadUrl(rep.type)}
-                  download
-                  className="w-full py-2.5 rounded-xl bg-cyan-950 hover:bg-cyan-900 border border-cyan-800 text-cyan-300 font-bold text-xs font-mono flex items-center justify-center gap-2 transition-all shadow-sm"
-                >
-                  <Download className="w-4 h-4 text-cyan-400" /> Download {rep.type.toUpperCase()} Report (CSV)
-                </a>
-              </div>
+              {/* Download */}
+              <a
+                href={getReportDownloadUrl(rep.type)}
+                download
+                className="btn-ghost"
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, textDecoration: "none", flexShrink: 0 }}
+              >
+                <Download style={{ width: 12, height: 12 }} />
+                Download CSV
+              </a>
             </div>
           );
         })}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Settings, ShieldCheck, Key, Radio, Save, CheckCircle2 } from "lucide-react";
+import { Save, CheckCircle2, Lock } from "lucide-react";
 
 export default function SettingsPage() {
   const [provider, setProvider] = useState("Deterministic Mock Reasoning Engine");
@@ -13,89 +13,148 @@ export default function SettingsPage() {
     setTimeout(() => setSaved(false), 2000);
   };
 
+  const PROVIDERS = [
+    {
+      value: "Deterministic Mock Reasoning Engine",
+      label: "Deterministic Mock Reasoning Engine",
+      description: "Default offline research engine. Fully functional out-of-the-box, no API key required.",
+    },
+    {
+      value: "OpenAI gpt-4o / Local LLM Adapter",
+      label: "OpenAI / Anthropic / Ollama Local LLM Adapter",
+      description: "Modular adapter structure for connecting external LLM APIs.",
+    },
+  ];
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6 font-sans text-slate-200">
-      <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-        <div>
-          <h1 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-            <Settings className="w-5 h-5 text-cyan-400" />
-            CAIRA System Settings & Model Configuration
-          </h1>
-          <p className="text-xs text-slate-400 font-mono">Agent Reasoning Engine, LLM Integrations & Safety Locks</p>
-        </div>
+    <div style={{ maxWidth: 680, display: "flex", flexDirection: "column", gap: 20 }}>
+
+      {/* ── Page header ── */}
+      <div style={{ paddingBottom: 16, borderBottom: "1px solid var(--border-subtle)" }}>
+        <h1 style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.01em" }}>
+          System Settings &amp; Model Configuration
+        </h1>
+        <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+          Agent reasoning engine, LLM integrations, and safety locks
+        </p>
       </div>
 
-      <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-6 font-mono">
-        <div className="space-y-4">
-          <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Reasoning Engine Provider</h3>
-          <div className="space-y-2 text-xs">
-            <label className="flex items-center gap-3 p-3 rounded-lg bg-slate-950 border border-cyan-800/80 cursor-pointer">
-              <input 
-                type="radio" 
-                name="provider" 
-                value="Deterministic Mock Reasoning Engine" 
-                checked={provider === "Deterministic Mock Reasoning Engine"} 
-                onChange={(e) => setProvider(e.target.value)}
-                className="accent-cyan-400"
-              />
-              <div>
-                <div className="font-bold text-cyan-300">Deterministic Mock Reasoning Engine (Zero API Key Needed)</div>
-                <div className="text-[11px] text-slate-400 font-sans">Default offline research engine. Fully functional out-of-the-box.</div>
-              </div>
-            </label>
-
-            <label className="flex items-center gap-3 p-3 rounded-lg bg-slate-950 border border-slate-800 cursor-pointer opacity-80">
-              <input 
-                type="radio" 
-                name="provider" 
-                value="OpenAI gpt-4o / Local LLM Adapter" 
-                checked={provider === "OpenAI gpt-4o / Local LLM Adapter"} 
-                onChange={(e) => setProvider(e.target.value)}
-                className="accent-cyan-400"
-              />
-              <div>
-                <div className="font-bold text-slate-200">OpenAI / Anthropic / Ollama Local LLM Adapter</div>
-                <div className="text-[11px] text-slate-400 font-sans">Modular adapter structure for connecting external LLM APIs.</div>
-              </div>
-            </label>
-          </div>
-
-          {provider.includes("OpenAI") && (
-            <div className="pt-2">
-              <label className="text-xs text-slate-400">API Key (Optional):</label>
-              <input 
-                type="password" 
-                value={apiKey} 
-                onChange={(e) => setApiKey(e.target.value)} 
-                placeholder="sk-..." 
-                className="w-full p-2.5 rounded bg-slate-950 border border-slate-800 text-slate-200 outline-none mt-1 text-xs"
-              />
-            </div>
-          )}
+      {/* ── Reasoning engine provider ── */}
+      <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border-subtle)", borderRadius: 5 }}>
+        <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border-subtle)", background: "var(--bg-elevated)" }}>
+          <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+            Reasoning Engine Provider
+          </span>
+        </div>
+        <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+          {PROVIDERS.map((p) => {
+            const isSelected = provider === p.value;
+            return (
+              <label
+                key={p.value}
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 12,
+                  padding: "12px 14px",
+                  borderRadius: 4,
+                  border: isSelected ? "1px solid rgba(59,130,246,0.35)" : "1px solid var(--border-subtle)",
+                  background: isSelected ? "rgba(59,130,246,0.06)" : "var(--bg-elevated)",
+                  cursor: "pointer",
+                  transition: "border-color 0.15s, background 0.15s",
+                }}
+              >
+                <input
+                  type="radio"
+                  name="provider"
+                  value={p.value}
+                  checked={isSelected}
+                  onChange={(e) => setProvider(e.target.value)}
+                  style={{ marginTop: 2, accentColor: "var(--accent-blue)", flexShrink: 0 }}
+                />
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: isSelected ? "var(--accent-blue)" : "var(--text-primary)", marginBottom: 3 }}>
+                    {p.label}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.5 }}>
+                    {p.description}
+                  </div>
+                </div>
+              </label>
+            );
+          })}
         </div>
 
-        {/* SAFETIES SECTION */}
-        <div className="pt-4 border-t border-slate-800 space-y-3">
-          <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Safety & Containment Policy</h3>
-          <div className="p-4 rounded-xl bg-amber-950/40 border border-amber-800/60 text-xs font-bold text-amber-300 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Radio className="w-4 h-4 text-amber-400 animate-pulse" />
-              <span>SIMULATION MODE SAFETY LOCK ACTIVE</span>
-            </div>
-            <span className="text-[10px] px-2 py-0.5 rounded bg-amber-900 text-amber-200">ENFORCED</span>
+        {provider.includes("OpenAI") && (
+          <div style={{ padding: "0 16px 14px" }}>
+            <label style={{ display: "block", fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>
+              API Key (Optional)
+            </label>
+            <input
+              type="password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="sk-..."
+              className="field"
+              style={{ width: "100%", boxSizing: "border-box", fontFamily: "monospace" }}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* ── Safety lock notice ── */}
+      <div
+        style={{
+          background: "var(--bg-surface)",
+          border: "1px solid rgba(251,191,36,0.2)",
+          borderLeft: "3px solid #d97706",
+          borderRadius: 5,
+          padding: "12px 16px",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+        }}
+      >
+        <Lock style={{ width: 13, height: 13, color: "#d97706", flexShrink: 0 }} />
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#d97706", marginBottom: 2, letterSpacing: "0.03em" }}>
+            Simulation Mode Safety Lock — Active
+          </div>
+          <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+            All containment actions are strictly simulated. No real infrastructure is modified.
           </div>
         </div>
+        <span
+          style={{
+            marginLeft: "auto",
+            fontSize: 10,
+            fontWeight: 700,
+            padding: "2px 8px",
+            borderRadius: 3,
+            background: "rgba(251,191,36,0.1)",
+            border: "1px solid rgba(251,191,36,0.25)",
+            color: "#fbbf24",
+            flexShrink: 0,
+          }}
+        >
+          ENFORCED
+        </span>
+      </div>
 
+      {/* ── Save button ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <button
           onClick={handleSave}
-          className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-cyan-950 transition-all flex items-center justify-center gap-2"
+          className="btn-primary"
+          style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
         >
-          <Save className="w-4 h-4" /> Save System Settings
+          <Save style={{ width: 12, height: 12 }} />
+          Save System Settings
         </button>
-
         {saved && (
-          <div className="p-3 rounded-lg bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs font-mono flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Settings updated successfully!
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#34d399" }}>
+            <CheckCircle2 style={{ width: 13, height: 13 }} />
+            Settings updated successfully
           </div>
         )}
       </div>

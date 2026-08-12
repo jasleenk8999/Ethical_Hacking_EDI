@@ -1,60 +1,176 @@
 "use client";
 
 import { useState } from "react";
-import { ShieldCheck, UserCheck, RefreshCw, Bell, Search, Terminal } from "lucide-react";
+import { RefreshCw, ChevronDown, Bell, Clock } from "lucide-react";
+
+const ROLES = ["SOC Analyst (Tier-1)", "SOC Analyst (Tier-2)", "Security Administrator", "Academic Researcher"];
 
 export default function Topbar({ title, subtitle }: { title?: string; subtitle?: string }) {
-  const [role, setRole] = useState("SOC Analyst");
+  const [role, setRole] = useState(ROLES[0]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const now = new Date();
+  const timeStr = now.toUTCString().replace("GMT", "UTC");
 
   const handleRefresh = () => {
     setIsRefreshing(true);
-    setTimeout(() => {
-      window.location.reload();
-    }, 400);
+    setTimeout(() => window.location.reload(), 350);
   };
 
   return (
-    <header className="h-16 border-b border-slate-800 bg-slate-950/80 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-20">
-      <div>
-        <h1 className="text-lg font-bold text-slate-100 tracking-tight flex items-center gap-2">
-          {title || "SOC Incident Command Center"}
-          <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 font-mono font-normal">
-            Agent Live
-          </span>
-        </h1>
-        {subtitle && <p className="text-xs text-slate-400 font-mono">{subtitle}</p>}
+    <header
+      style={{
+        height: 52,
+        background: "var(--bg-elevated)",
+        borderBottom: "1px solid var(--border-subtle)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "0 20px",
+        position: "sticky",
+        top: 0,
+        zIndex: 20,
+        flexShrink: 0,
+      }}
+    >
+      {/* Left — breadcrumb-style title */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
+          {title || "SOC Operations"}
+        </span>
+        {subtitle && (
+          <>
+            <span style={{ color: "var(--text-muted)", fontSize: 13 }}>/</span>
+            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{subtitle}</span>
+          </>
+        )}
+        <span
+          style={{
+            marginLeft: 6,
+            fontSize: 10,
+            padding: "2px 8px",
+            borderRadius: 3,
+            background: "rgba(52,211,153,0.08)",
+            border: "1px solid rgba(52,211,153,0.2)",
+            color: "#34d399",
+            fontFamily: "monospace",
+            fontWeight: 600,
+            letterSpacing: "0.05em",
+          }}
+        >
+          ● LIVE
+        </span>
       </div>
 
-      <div className="flex items-center gap-4">
-        {/* Role Selector */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-slate-900 border border-slate-800 text-xs text-slate-300 font-mono">
-          <UserCheck className="w-3.5 h-3.5 text-cyan-400" />
-          <span className="text-slate-500">Role:</span>
-          <select 
-            value={role} 
+      {/* Right — controls */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        {/* Clock */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 5,
+            fontSize: 11,
+            color: "var(--text-muted)",
+            fontFamily: "monospace",
+          }}
+        >
+          <Clock style={{ width: 12, height: 12 }} />
+          {timeStr}
+        </div>
+
+        {/* Role selector */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "4px 10px",
+            borderRadius: 4,
+            background: "var(--bg-surface)",
+            border: "1px solid var(--border-default)",
+            fontSize: 11,
+            color: "var(--text-secondary)",
+            cursor: "pointer",
+            fontFamily: "monospace",
+          }}
+        >
+          <span style={{ color: "var(--text-muted)" }}>Role:</span>
+          <select
+            value={role}
             onChange={(e) => setRole(e.target.value)}
-            className="bg-transparent text-slate-200 outline-none cursor-pointer font-sans text-xs"
+            style={{
+              background: "transparent",
+              color: "var(--accent-blue)",
+              border: "none",
+              outline: "none",
+              fontSize: 11,
+              cursor: "pointer",
+              fontFamily: "monospace",
+            }}
           >
-            <option value="SOC Analyst">SOC Analyst (Tier-1/2)</option>
-            <option value="Security Administrator">Security Administrator</option>
-            <option value="Researcher">Academic Researcher</option>
+            {ROLES.map((r) => (
+              <option key={r} value={r} style={{ background: "var(--bg-surface)" }}>
+                {r}
+              </option>
+            ))}
           </select>
         </div>
 
-        {/* Refresh button */}
+        {/* Notifications */}
         <button
-          onClick={handleRefresh}
-          className="p-2 rounded-md bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
-          title="Refresh SOC Data"
+          style={{
+            background: "transparent",
+            border: "1px solid var(--border-default)",
+            borderRadius: 4,
+            padding: "5px 7px",
+            cursor: "pointer",
+            color: "var(--text-muted)",
+            display: "flex",
+            alignItems: "center",
+          }}
+          title="Notifications"
         >
-          <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin text-cyan-400" : ""}`} />
+          <Bell style={{ width: 13, height: 13 }} />
         </button>
 
-        {/* Operational Status */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-slate-900 border border-slate-800 text-xs text-slate-300 font-mono">
-          <div className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-          <span className="text-emerald-400 font-semibold">ENGINE: DETERMINISTIC MOCK / FASTAPI</span>
+        {/* Refresh */}
+        <button
+          onClick={handleRefresh}
+          style={{
+            background: "transparent",
+            border: "1px solid var(--border-default)",
+            borderRadius: 4,
+            padding: "5px 7px",
+            cursor: "pointer",
+            color: isRefreshing ? "var(--accent-blue)" : "var(--text-muted)",
+            display: "flex",
+            alignItems: "center",
+            transition: "color 0.15s",
+          }}
+          title="Refresh"
+        >
+          <RefreshCw
+            style={{
+              width: 13,
+              height: 13,
+              animation: isRefreshing ? "spin 0.6s linear infinite" : "none",
+            }}
+          />
+        </button>
+
+        {/* Engine tag */}
+        <div
+          style={{
+            fontSize: 10,
+            fontFamily: "monospace",
+            padding: "3px 8px",
+            borderRadius: 3,
+            background: "var(--bg-surface)",
+            border: "1px solid var(--border-default)",
+            color: "var(--text-muted)",
+          }}
+        >
+          ENGINE: FASTAPI / SQLITE
         </div>
       </div>
     </header>
