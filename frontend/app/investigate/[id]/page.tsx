@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { Play, Lock, AlertTriangle, CheckCircle2, ShieldCheck, Layers, Terminal } from "lucide-react";
-import { fetchAlertDetail, runInvestigation, simulateContainment, escalateIncident } from "@/lib/api";
+import { Play, Lock, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { fetchAlertDetail, fetchEvidence, runInvestigation, simulateContainment, escalateIncident } from "@/lib/api";
 import TrustBadge from "@/components/TrustBadge";
 import ConfidenceGauge from "@/components/ConfidenceGauge";
 import EvidenceGraph from "@/components/EvidenceGraph";
@@ -47,7 +47,7 @@ function Divider({ label }: { label: string }) {
 function EvidenceToolCard({
   title, latency, description, finding, tier, weight
 }: {
-  title: string; latency: string; description: string; finding: string;
+  title: string; latency?: string; description?: string; finding: string;
   tier: "VERIFIED" | "CORROBORATED" | "UNTRUSTED"; weight: number;
 }) {
   return (
@@ -55,11 +55,11 @@ function EvidenceToolCard({
       {/* Card header */}
       <div style={{ padding: "9px 14px", borderBottom: "1px solid var(--border-subtle)", background: "var(--bg-elevated)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-primary)" }}>{title}</span>
-        <span style={{ fontFamily: "monospace", fontSize: 10, color: "var(--text-muted)" }}>{latency}</span>
+        {latency && <span style={{ fontFamily: "monospace", fontSize: 10, color: "var(--text-muted)" }}>{latency}</span>}
       </div>
       {/* Body */}
       <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
-        <p style={{ margin: 0, fontSize: 11, color: "var(--text-muted)", lineHeight: 1.55 }}>{description}</p>
+        {description && <p style={{ margin: 0, fontSize: 11, color: "var(--text-muted)", lineHeight: 1.55 }}>{description}</p>}
         <div style={{ fontSize: 11, color: "var(--text-secondary)", background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", borderRadius: 4, padding: "7px 10px", lineHeight: 1.55 }}>
           {finding}
         </div>
@@ -78,32 +78,42 @@ export default function IncidentInvestigationPage() {
   const alertId = params.id as string;
 
   const [alert, setAlert] = useState<any>(null);
+  const [evidenceList, setEvidenceList] = useState<any[]>([]);
   const [investigationData, setInvestigationData] = useState<any>(null);
   const [activeStepIndex, setActiveStepIndex] = useState(-1);
   const [isRunning, setIsRunning] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalDetails, setModalDetails] = useState<any>(null);
 
-  useEffect(() => {
-    if (alertId) {
-      fetchAlertDetail(alertId)
-        .then((data) => setAlert(data))
-        .catch((err) => console.error("Error loading alert:", err));
+  const loadAlertAndEvidence = async () => {
+    if (!alertId) return;
+    try {
+      const data = await fetchAlertDetail(alertId);
+      setAlert(data);
+      const ev = await fetchEvidence(alertId);
+      setEvidenceList(ev || []);
+    } catch (err) {
+      console.error("Error loading alert/evidence:", err);
     }
+  };
+
+  useEffect(() => {
+    loadAlertAndEvidence();
   }, [alertId]);
 
   const handleStartInvestigation = async () => {
     setIsRunning(true);
     setActiveStepIndex(0);
     for (let i = 1; i <= PIPELINE_STEPS.length; i++) {
-      await new Promise((r) => setTimeout(r, 250));
+      await new Promise((r) => setTimeout(r, 200));
       setActiveStepIndex(i - 1);
     }
     try {
       const res = await runInvestigation(alertId);
       setInvestigationData(res);
+      await loadAlertAndEvidence();
+
       const updatedAlert = await fetchAlertDetail(alertId);
-      setAlert(updatedAlert);
       if (res.decision?.action?.includes("SIMULATED")) {
         setModalDetails({
           target_host: updatedAlert.target_asset,
@@ -130,8 +140,7 @@ export default function IncidentInvestigationPage() {
         safety_banner: res.safety_banner,
       });
       setModalOpen(true);
-      const updatedAlert = await fetchAlertDetail(alertId);
-      setAlert(updatedAlert);
+      await loadAlertAndEvidence();
     } catch (err) {
       console.error("Simulated containment error:", err);
     }
@@ -140,8 +149,7 @@ export default function IncidentInvestigationPage() {
   const handleManualEscalation = async () => {
     try {
       await escalateIncident(alertId);
-      const updatedAlert = await fetchAlertDetail(alertId);
-      setAlert(updatedAlert);
+      await loadAlertAndEvidence();
     } catch (err) {
       console.error("Escalation error:", err);
     }
@@ -156,9 +164,9 @@ export default function IncidentInvestigationPage() {
   }
 
   const decision = investigationData?.decision || {
-    confidence: alert.status === "CONTAINED (SIMULATED)" ? 0.84 : 0.0,
-    classification: alert.status === "CONTAINED (SIMULATED)" ? "MALICIOUS" : alert.status === "ESCALATED" ? "UNCERTAIN" : "PENDING",
-    action: alert.status === "CONTAINED (SIMULATED)" ? "SIMULATED HOST ISOLATION" : alert.status === "ESCALATED" ? "ESCALATE TO HUMAN ANALYST" : "AWAITING INVESTIGATION",
+    confidence: alert.status?.includes("CONTAINED") ? 0.84 : 0.0,
+    classification: alert.status?.includes("CONTAINED") ? "MALICIOUS" : alert.status === "ESCALATED" ? "UNCERTAIN" : "PENDING",
+    action: alert.status?.includes("CONTAINED") ? "SIMULATED HOST ISOLATION" : alert.status === "ESCALATED" ? "ESCALATE TO HUMAN ANALYST" : "AWAITING INVESTIGATION",
     decision_reason: "Evidence-gated pipeline awaiting execution or completed.",
   };
 
@@ -210,7 +218,7 @@ export default function IncidentInvestigationPage() {
               style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
             >
               <Play style={{ width: 11, height: 11 }} />
-              {isRunning ? "Running…" : "Start Investigation"}
+              {isRunning ? "Running Agent…" : "Start Investigation"}
             </button>
             <button
               onClick={handleManualContainment}
@@ -290,33 +298,25 @@ export default function IncidentInvestigationPage() {
       </div>
 
       {/* ── Evidence tools ── */}
-      <Divider label="Investigative Tools & Evidence" />
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-        <EvidenceToolCard
-          title="Tool 1 — Log Lookup"
-          latency="28.5 ms"
-          description={`Searched SIEM archives for IP ${alert.source_ip} on host ${alert.target_asset}.`}
-          finding="Detected 27 consecutive failed SSH authentication attempts within 5 minutes."
-          tier="CORROBORATED"
-          weight={0.6}
-        />
-        <EvidenceToolCard
-          title="Tool 2 — Threat Intelligence"
-          latency="34.2 ms"
-          description={`Queried global threat intelligence database for ${alert.source_ip}.`}
-          finding="Reputation: Malicious (Score 92/100) | Known Campaign: Credential Stuffing & APT-41."
-          tier="VERIFIED"
-          weight={1.0}
-        />
-        <EvidenceToolCard
-          title="Tool 3 — Asset Criticality"
-          latency="18.7 ms"
-          description={`Retrieved CMDB asset metadata for ${alert.target_asset}.`}
-          finding="Department: Finance & Billing | Criticality: Critical | Impact: Very High (PCI-DSS)."
-          tier="CORROBORATED"
-          weight={0.6}
-        />
-      </div>
+      <Divider label="Investigative Tools & Real Evidence" />
+      {evidenceList.length === 0 ? (
+        <div style={{ padding: "24px", background: "var(--bg-surface)", border: "1px solid var(--border-subtle)", borderRadius: 5, textAlign: "center", color: "var(--text-muted)", fontSize: 12 }}>
+          No tools executed yet for {alert.alert_id}. Click "Start Investigation" to execute agent tools against database logs.
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 12 }}>
+          {evidenceList.map((ev: any, idx: number) => (
+            <EvidenceToolCard
+              key={ev.id || ev.evidence_id || idx}
+              title={`${ev.tool_name} (${ev.evidence_type})`}
+              description={`Queried database for alert target ${alert.target_asset} / ${alert.source_ip}.`}
+              finding={ev.content}
+              tier={ev.trust_tier}
+              weight={ev.trust_weight}
+            />
+          ))}
+        </div>
+      )}
 
       {/* ── Confidence & decision ── */}
       <Divider label="Calibrated Confidence & Decision" />
@@ -358,6 +358,7 @@ export default function IncidentInvestigationPage() {
       <EvidenceGraph
         alertId={alert.alert_id}
         alertType={alert.type}
+        evidenceItems={evidenceList}
         confidence={decision.confidence}
         decision={decision}
       />

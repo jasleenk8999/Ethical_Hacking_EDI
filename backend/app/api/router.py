@@ -1,4 +1,6 @@
 import json
+import time
+import logging
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
@@ -12,13 +14,14 @@ from app.schemas.schemas import (
     InvestigationRequest
 )
 from app.services.normalizer import normalize_alert
-from app.services.tools import SimulatedLogLookup, SimulatedThreatIntel, SimulatedAssetCriticality
 from app.services.trust_engine import assign_trust_tier
 from app.services.confidence_engine import calculate_confidence
 from app.services.decision_engine import evaluate_decision
 from app.services.audit_engine import verify_audit_chain, create_audit_entry, GENESIS_HASH
 from app.services.investigation import run_investigation_pipeline
 from app.services.evaluator import run_evaluation_harness
+
+logger = logging.getLogger(__name__)
 
 api_router = APIRouter(prefix="/api")
 
@@ -73,8 +76,20 @@ def investigate_incident(alert_id_str: str, req: InvestigationRequest = Investig
     """
     Runs the step-by-step evidence-gated investigation pipeline for an incident.
     """
+    start_time = time.time()
     try:
         result = run_investigation_pipeline(db, alert_id_str, scoring_method=req.scoring_method)
+        elapsed = time.time() - start_time
+        
+        # Log metrics for monitoring
+        logger.info(
+            f"Investigation {alert_id_str}: {elapsed:.2f}s, "
+            f"tools_called={len(result['evidence'])}, "
+            f"confidence={result['confidence']:.4f}, "
+            f"classification={result['decision'].classification}, "
+            f"action={result['decision'].action}"
+        )
+        
         return {
             "status": "SUCCESS",
             "message": f"Investigation completed for {alert_id_str}.",
@@ -88,11 +103,13 @@ def investigate_incident(alert_id_str: str, req: InvestigationRequest = Investig
                 "decision_reason": result["decision"].decision_reason
             },
             "evidence_count": len(result["evidence"]),
-            "audit_id": result["audit"].audit_id
+            "audit_id": result["audit"].audit_id,
+            "elapsed_seconds": round(elapsed, 2)
         }
     except ValueError as ve:
         raise HTTPException(status_code=404, detail=str(ve))
     except Exception as e:
+        logger.error(f"Investigation {alert_id_str} failed after {time.time() - start_time:.2f}s: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Investigation failed: {str(e)}")
 
 @api_router.post("/incidents/{alert_id_str}/simulate-containment")
@@ -198,9 +215,17 @@ def tool_asset_criticality(target_asset: str):
     }
 
 # --- EVIDENCE & DECISION ---
+@api_router.get("/evidence", response_model=List[EvidenceResponse])
+def get_all_evidence(db: Session = Depends(get_db)):
+    return db.query(Evidence).all()
+
 @api_router.get("/evidence/{alert_id_str}", response_model=List[EvidenceResponse])
 def get_evidence(alert_id_str: str, db: Session = Depends(get_db)):
     return db.query(Evidence).filter(Evidence.alert_id == alert_id_str).all()
+
+@api_router.get("/decisions", response_model=List[DecisionResponse])
+def get_all_decisions(db: Session = Depends(get_db)):
+    return db.query(DecisionRecord).all()
 
 @api_router.post("/decision/calculate")
 def calculate_decision_preview(payload: Dict[str, Any]):

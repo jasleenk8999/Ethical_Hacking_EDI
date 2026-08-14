@@ -1,0 +1,13 @@
+# CAIRA Backend Configuration
+
+database:
+  url: sqlite:///./caira.db
+
+agent:
+  provider: bharatcode   # "bharatcode" or "anthropic"
+  max_iterations: 15
+  anthropic:
+    model: claude-3-5-sonnet-20240620
+  bharatcode:
+    model: bharatcode:qwen36-35b-q6-256k-vision
+    base_url: https://bharatcode.ai/api/model/v1

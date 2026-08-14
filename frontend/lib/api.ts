@@ -66,6 +66,18 @@ export async function fetchEvidence(alertId: string) {
   return res.json();
 }
 
+export async function fetchAllEvidence() {
+  const res = await fetch(`${API_BASE}/evidence`, { cache: 'no-store' });
+  if (!res.ok) throw new Error("Failed to fetch all evidence");
+  return res.json();
+}
+
+export async function fetchAllDecisions() {
+  const res = await fetch(`${API_BASE}/decisions`, { cache: 'no-store' });
+  if (!res.ok) throw new Error("Failed to fetch decisions");
+  return res.json();
+}
+
 export async function fetchIncidentAudit(alertId: string) {
   const res = await fetch(`${API_BASE}/incidents/${alertId}/audit`, { cache: 'no-store' });
   if (!res.ok) throw new Error("Failed to fetch incident audit");

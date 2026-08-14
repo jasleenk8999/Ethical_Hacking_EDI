@@ -1,41 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import React, { useEffect, useState } from "react";
 import TrustBadge from "@/components/TrustBadge";
 import EvidenceGraph from "@/components/EvidenceGraph";
-
-const ALL_EVIDENCE = [
-  {
-    id: "EVD-101", alert_id: "ALT-001",
-    tool_name: "Threat Intelligence", evidence_type: "Global Reputation Feed",
-    trust_tier: "VERIFIED" as const, trust_weight: 1.0, evidence_score: 0.95,
-    content: "Source IP 192.168.10.45 listed in threat intelligence feed (Reputation: Malicious, Score 92/100).",
-  },
-  {
-    id: "EVD-102", alert_id: "ALT-001",
-    tool_name: "Log Lookup", evidence_type: "SIEM Audit Telemetry",
-    trust_tier: "CORROBORATED" as const, trust_weight: 0.6, evidence_score: 0.82,
-    content: "27 consecutive failed SSH logins detected within a 5-minute window on FIN-SERVER-01.",
-  },
-  {
-    id: "EVD-103", alert_id: "ALT-001",
-    tool_name: "Asset Criticality", evidence_type: "CMDB Impact Record",
-    trust_tier: "CORROBORATED" as const, trust_weight: 0.6, evidence_score: 0.90,
-    content: "Asset FIN-SERVER-01 belongs to Finance Dept. Business impact: Very High.",
-  },
-  {
-    id: "EVD-104", alert_id: "ALT-004",
-    tool_name: "Threat Intelligence", evidence_type: "Signature Match",
-    trust_tier: "VERIFIED" as const, trust_weight: 1.0, evidence_score: 0.98,
-    content: "Win32/CobaltStrike.Gen signature verified in endpoint memory space.",
-  },
-  {
-    id: "EVD-105", alert_id: "ALT-004",
-    tool_name: "External Feed", evidence_type: "Unverified User Report",
-    trust_tier: "UNTRUSTED" as const, trust_weight: 0.2, evidence_score: 0.40,
-    content: "Single third-party forum post alleging compromised API endpoint — unverified.",
-  },
-];
+import { fetchAllEvidence } from "@/lib/api";
 
 const FILTER_OPTIONS = [
   { key: "ALL",          label: "All" },
@@ -44,19 +12,33 @@ const FILTER_OPTIONS = [
   { key: "UNTRUSTED",    label: "Untrusted" },
 ];
 
-const TIER_COUNTS = {
-  VERIFIED:     ALL_EVIDENCE.filter(e => e.trust_tier === "VERIFIED").length,
-  CORROBORATED: ALL_EVIDENCE.filter(e => e.trust_tier === "CORROBORATED").length,
-  UNTRUSTED:    ALL_EVIDENCE.filter(e => e.trust_tier === "UNTRUSTED").length,
-};
-
 export default function EvidenceExplorerPage() {
-  const [filterTier, setFilterTier] = useState("ALL");
-  const [expanded, setExpanded]     = useState<string | null>(null);
+  const [evidenceList, setEvidenceList] = useState<any[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [filterTier, setFilterTier]     = useState("ALL");
+  const [expanded, setExpanded]         = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchAllEvidence()
+      .then((data) => {
+        setEvidenceList(data || []);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch evidence:", err);
+        setLoading(false);
+      });
+  }, []);
+
+  const tierCounts = {
+    VERIFIED:     evidenceList.filter(e => e.trust_tier === "VERIFIED").length,
+    CORROBORATED: evidenceList.filter(e => e.trust_tier === "CORROBORATED").length,
+    UNTRUSTED:    evidenceList.filter(e => e.trust_tier === "UNTRUSTED").length,
+  };
 
   const filtered = filterTier === "ALL"
-    ? ALL_EVIDENCE
-    : ALL_EVIDENCE.filter(e => e.trust_tier === filterTier);
+    ? evidenceList
+    : evidenceList.filter(e => e.trust_tier === filterTier);
 
   return (
     <div style={{ maxWidth: 1000, display: "flex", flexDirection: "column", gap: 20 }}>
@@ -67,17 +49,17 @@ export default function EvidenceExplorerPage() {
           Evidence Explorer
         </h1>
         <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
-          All collected evidence items with trust tier annotations and source lineage.
+          All collected evidence items with trust tier annotations and source lineage from live database.
         </p>
       </div>
 
       {/* Summary strip */}
       <div style={{ display: "flex", gap: 0, background: "var(--bg-surface)", border: "1px solid var(--border-subtle)", borderRadius: 5, overflow: "hidden" }}>
         {[
-          { label: "Total",       value: ALL_EVIDENCE.length, color: "var(--text-secondary)" },
-          { label: "Verified",    value: TIER_COUNTS.VERIFIED,     color: "#34d399" },
-          { label: "Corroborated",value: TIER_COUNTS.CORROBORATED,  color: "var(--accent-blue)" },
-          { label: "Untrusted",   value: TIER_COUNTS.UNTRUSTED,     color: "#fbbf24" },
+          { label: "Total",       value: evidenceList.length, color: "var(--text-secondary)" },
+          { label: "Verified",    value: tierCounts.VERIFIED,     color: "#34d399" },
+          { label: "Corroborated",value: tierCounts.CORROBORATED,  color: "var(--accent-blue)" },
+          { label: "Untrusted",   value: tierCounts.UNTRUSTED,     color: "#fbbf24" },
         ].map((s, i) => (
           <div
             key={s.label}
@@ -99,7 +81,7 @@ export default function EvidenceExplorerPage() {
         {/* Filter bar */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 14px", borderBottom: "1px solid var(--border-subtle)", background: "var(--bg-elevated)" }}>
           <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
-            Evidence Items — {filtered.length} shown
+            Evidence Items — {loading ? "Loading..." : `${filtered.length} shown`}
           </span>
           <div style={{ display: "flex", gap: 1, border: "1px solid var(--border-subtle)", borderRadius: 3, overflow: "hidden" }}>
             {FILTER_OPTIONS.map((opt) => (
@@ -138,19 +120,26 @@ export default function EvidenceExplorerPage() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((item, idx) => (
-              <>
+            {loading && (
+              <tr>
+                <td colSpan={8} style={{ padding: "24px", textAlign: "center", color: "var(--text-muted)", fontSize: 12 }}>
+                  Loading evidence records...
+                </td>
+              </tr>
+            )}
+
+            {!loading && filtered.map((item) => (
+              <React.Fragment key={item.id || item.evidence_id}>
                 <tr
-                  key={item.id}
                   className="data-row"
                   style={{
-                    borderBottom: expanded === item.id ? "none" : "1px solid var(--bg-surface)",
+                    borderBottom: expanded === (item.id || item.evidence_id) ? "none" : "1px solid var(--bg-surface)",
                     cursor: "pointer",
                   }}
-                  onClick={() => setExpanded(expanded === item.id ? null : item.id)}
+                  onClick={() => setExpanded(expanded === (item.id || item.evidence_id) ? null : (item.id || item.evidence_id))}
                 >
                   <td style={{ padding: "9px 14px", fontFamily: "monospace", fontSize: 11, color: "var(--text-muted)" }}>
-                    {item.id}
+                    {item.evidence_id || item.id}
                   </td>
                   <td style={{ padding: "9px 14px", fontWeight: 600, color: "var(--text-primary)" }}>
                     {item.tool_name}
@@ -162,20 +151,20 @@ export default function EvidenceExplorerPage() {
                     {item.alert_id}
                   </td>
                   <td style={{ padding: "9px 14px", fontFamily: "monospace", fontWeight: 700, color: "var(--text-secondary)" }}>
-                    {item.evidence_score.toFixed(2)}
+                    {(item.evidence_score ?? 0).toFixed(2)}
                   </td>
                   <td style={{ padding: "9px 14px" }}>
                     <TrustBadge tier={item.trust_tier} weight={item.trust_weight} />
                   </td>
                   <td style={{ padding: "9px 14px", fontFamily: "monospace", color: "var(--text-muted)", fontSize: 11 }}>
-                    {item.trust_weight.toFixed(1)}
+                    {(item.trust_weight ?? 0.2).toFixed(1)}
                   </td>
                   <td style={{ padding: "9px 14px", color: "var(--text-muted)", fontSize: 11 }}>
-                    {expanded === item.id ? "▲" : "▼"}
+                    {expanded === (item.id || item.evidence_id) ? "▲" : "▼"}
                   </td>
                 </tr>
-                {expanded === item.id && (
-                  <tr key={`${item.id}-detail`}>
+                {expanded === (item.id || item.evidence_id) && (
+                  <tr>
                     <td
                       colSpan={8}
                       style={{
@@ -191,16 +180,22 @@ export default function EvidenceExplorerPage() {
                         <p style={{ margin: 0, fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
                           {item.content}
                         </p>
+                        {item.reason && (
+                          <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 6, fontStyle: "italic" }}>
+                            Trust rationale: {item.reason}
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>
                 )}
-              </>
+              </React.Fragment>
             ))}
-            {filtered.length === 0 && (
+
+            {!loading && filtered.length === 0 && (
               <tr>
                 <td colSpan={8} style={{ padding: "24px", textAlign: "center", color: "var(--text-muted)", fontSize: 12 }}>
-                  No evidence items match the selected filter.
+                  No evidence items found. Ingest an alert and run an investigation to gather evidence.
                 </td>
               </tr>
             )}
@@ -216,7 +211,7 @@ export default function EvidenceExplorerPage() {
           </span>
         </div>
         <div style={{ padding: 16 }}>
-          <EvidenceGraph />
+          <EvidenceGraph evidenceItems={evidenceList} />
         </div>
       </div>
     </div>
