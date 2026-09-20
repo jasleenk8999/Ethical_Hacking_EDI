@@ -399,3 +399,153 @@ class TestPreservationAuditChainVerification:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s"])
+
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# NEW: Test Evaluation Isolation Implementation (should PASS after Phase 2 changes)
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+class TestEvaluationIsolationImplementation:
+    """
+    After Phase 2 fixes: Verify evaluation isolation is working correctly.
+    These tests demonstrate the new behavior.
+    """
+
+    def test_evaluation_records_marked_with_is_evaluation_flag(self, db_session):
+        """Verify that evaluation records are properly marked with is_evaluation=true."""
+        from app.services.evaluation_context import evaluation_run
+        
+        # Create a synthetic alert within evaluation context
+        with evaluation_run() as run_id:
+            alert = AlertRecord(
+                alert_id="EVAL-TEST-001",
+                type="Test Alert",
+                severity="HIGH",
+                source_ip="10.0.0.1",
+                target_asset="TEST-HOST",
+                is_evaluation=True,
+                evaluation_run_id=run_id
+            )
+            db_session.add(alert)
+            db_session.commit()
+
+            # Verify the evaluation context was applied
+            fetched_alert = db_session.query(AlertRecord).filter_by(alert_id="EVAL-TEST-001").first()
+            assert fetched_alert is not None
+            assert fetched_alert.is_evaluation is True
+            assert fetched_alert.evaluation_run_id == run_id
+            assert run_id.startswith("EVAL-")
+
+    def test_evaluation_run_id_is_unique_per_execution(self, db_session):
+        """Verify that each evaluation run gets a unique ID."""
+        from app.services.evaluation_context import EvaluationContext
+        
+        run_1 = EvaluationContext.start_run()
+        run_2 = EvaluationContext.start_run()
+        
+        assert run_1 != run_2
+        assert run_1.startswith("EVAL-")
+        assert run_2.startswith("EVAL-")
+        
+        EvaluationContext.end_run()
+
+    def test_operational_records_not_marked_as_evaluation(self, db_session):
+        """Verify that operational alerts are NOT marked as evaluation."""
+        alert = AlertRecord(
+            alert_id="OP-001",
+            type="Operational Alert",
+            severity="MEDIUM",
+            source_ip="192.168.1.100",
+            target_asset="PROD-HOST",
+            # Default: is_evaluation=False, evaluation_run_id=None
+        )
+        db_session.add(alert)
+        db_session.commit()
+
+        fetched = db_session.query(AlertRecord).filter_by(alert_id="OP-001").first()
+        assert fetched.is_evaluation is False
+        assert fetched.evaluation_run_id is None
+
+    def test_operational_metrics_exclude_evaluation_records(self, db_session):
+        """Verify that queries can distinguish evaluation from operational records."""
+        from app.services.evaluation_context import evaluation_run
+        
+        # Create 2 operational alerts
+        for i in range(2):
+            alert = AlertRecord(
+                alert_id=f"OP-{i}",
+                type="Op",
+                severity="HIGH",
+                source_ip="1.1.1.1",
+                target_asset="HOST",
+                is_evaluation=False
+            )
+            db_session.add(alert)
+        db_session.commit()
+
+        # Create 3 evaluation alerts in a run
+        with evaluation_run() as run_id:
+            for i in range(3):
+                alert = AlertRecord(
+                    alert_id=f"EVAL-{i}",
+                    type="Eval",
+                    severity="HIGH",
+                    source_ip="2.2.2.2",
+                    target_asset="HOST",
+                    is_evaluation=True,
+                    evaluation_run_id=run_id
+                )
+                db_session.add(alert)
+            db_session.commit()
+
+        # Query operational only
+        op_count = db_session.query(AlertRecord).filter(AlertRecord.is_evaluation == False).count()
+        # Query evaluation only
+        eval_count = db_session.query(AlertRecord).filter(AlertRecord.is_evaluation == True).count()
+
+        assert op_count == 2, f"Expected 2 operational, got {op_count}"
+        assert eval_count == 3, f"Expected 3 evaluation, got {eval_count}"
+
+    def test_decision_policy_centralization(self):
+        """Verify the centralized DecisionPolicy module exists and works."""
+        from app.services.decision_policy import (
+            classify_confidence,
+            BENIGN_MAX,
+            UNCERTAIN_MIN,
+            MALICIOUS_MIN
+        )
+
+        # Test threshold constants
+        assert BENIGN_MAX == 0.39
+        assert UNCERTAIN_MIN == 0.40
+        assert MALICIOUS_MIN == 0.75
+
+        # Test classification logic
+        assert classify_confidence(0.39) == "BENIGN"
+        assert classify_confidence(0.40) == "UNCERTAIN"
+        assert classify_confidence(0.74) == "UNCERTAIN"
+        assert classify_confidence(0.75) == "MALICIOUS"
+        assert classify_confidence(0.95) == "MALICIOUS"
+
+    def test_decision_engine_uses_centralized_policy(self):
+        """Verify that decision_engine.py uses the centralized DecisionPolicy."""
+        from app.services.decision_engine import evaluate_decision
+        
+        alert = {"alert_id": "TEST", "source_ip": "1.1.1.1", "target_asset": "HOST"}
+        evidence_list = []
+        
+        # Test BENIGN decision
+        result = evaluate_decision({"confidence": 0.39, "method": "WEIGHTED_TRUST"}, alert, evidence_list)
+        assert result["classification"] == "BENIGN"
+
+        # Test UNCERTAIN decision
+        result = evaluate_decision({"confidence": 0.40, "method": "WEIGHTED_TRUST"}, alert, evidence_list)
+        assert result["classification"] == "UNCERTAIN"
+
+        # Test MALICIOUS decision
+        result = evaluate_decision({"confidence": 0.75, "method": "WEIGHTED_TRUST"}, alert, evidence_list)
+        assert result["classification"] == "MALICIOUS"
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v", "-s"])

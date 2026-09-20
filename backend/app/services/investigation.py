@@ -4,6 +4,7 @@ from typing import List, Dict, Any, Union
 from uuid import uuid4
 from sqlalchemy.orm import Session
 from app.models.domain import AlertRecord, Evidence, DecisionRecord, AuditTrailRow
+from app.services.evaluation_context import EvaluationContext
 
 TRUST_WEIGHTS = {
     "VERIFIED": 1.0,
@@ -203,7 +204,9 @@ def run_investigation_pipeline(db: Session, alert_id_str: str, scoring_method: s
             reason=f"Agent lookup via {tool_name}",
             raw_strength=raw_str,
             cited=(tool_name in raw_decision.cited_evidence or ev_id in raw_decision.cited_evidence),
-            step_order=idx + 1
+            step_order=idx + 1,
+            is_evaluation=EvaluationContext.is_in_evaluation(),
+            evaluation_run_id=EvaluationContext.get_current_run_id()
         )
         db.add(ev_record)
         db_evidence_list.append(ev_record)
@@ -217,7 +220,9 @@ def run_investigation_pipeline(db: Session, alert_id_str: str, scoring_method: s
         scoring_method=scoring_method,
         decision_reason=f"Evidence-gated investigation for {alert_id_str}: computed confidence {raw_decision.confidence:.2f} (LLM reported: {raw_decision.llm_reported_confidence:.2f}).",
         cited_evidence=json.dumps(raw_decision.cited_evidence),
-        step_order=len(evidence_log) + 1
+        step_order=len(evidence_log) + 1,
+        is_evaluation=EvaluationContext.is_in_evaluation(),
+        evaluation_run_id=EvaluationContext.get_current_run_id()
     )
     db.add(db_decision)
     db.flush()
@@ -237,7 +242,9 @@ def run_investigation_pipeline(db: Session, alert_id_str: str, scoring_method: s
         event_content=json.dumps({"confidence": raw_decision.confidence, "llm_reported": raw_decision.llm_reported_confidence, "action": raw_decision.action}),
         previous_hash=prev_hash,
         current_hash=curr_hash,
-        verification_status="VALID"
+        verification_status="VALID",
+        is_evaluation=EvaluationContext.is_in_evaluation(),
+        evaluation_run_id=EvaluationContext.get_current_run_id()
     )
     db.add(audit_entry)
 

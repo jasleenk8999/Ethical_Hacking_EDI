@@ -19,6 +19,8 @@ class AlertRecord(Base):
     description = Column(Text, nullable=True)
     raw_payload = Column(Text, nullable=True)
     status = Column(String, default="INGESTED")  # INGESTED, INVESTIGATING, CLOSED, ESCALATED, CONTAINED
+    is_evaluation = Column(Boolean, default=False, index=True)  # True if from evaluation harness
+    evaluation_run_id = Column(String, nullable=True, index=True)  # Run ID for this evaluation (if is_evaluation=True)
     timestamp = Column(String, default=lambda: datetime.now(timezone.utc).isoformat())
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -51,6 +53,8 @@ class Evidence(Base):
     raw_strength = Column(Float, default=0.0)  # 0.0 to 1.0, real tool strength
     cited = Column(Boolean, default=False)  # whether this evidence was cited by the decision
     step_order = Column(Integer, default=0)  # order in the investigation
+    is_evaluation = Column(Boolean, default=False, index=True)  # True if from evaluation harness
+    evaluation_run_id = Column(String, nullable=True, index=True)  # Run ID for this evaluation
     timestamp = Column(String, default=lambda: datetime.now(timezone.utc).isoformat())
 
 
@@ -67,6 +71,8 @@ class DecisionRecord(Base):
     decision_reason = Column(Text, nullable=False)
     cited_evidence = Column(Text, default="[]")  # JSON list of evidence IDs cited by the LLM
     step_order = Column(Integer, default=0)
+    is_evaluation = Column(Boolean, default=False, index=True)  # True if from evaluation harness
+    evaluation_run_id = Column(String, nullable=True, index=True)  # Run ID for this evaluation
     timestamp = Column(String, default=lambda: datetime.now(timezone.utc).isoformat())
 
 
@@ -87,6 +93,8 @@ class AuditTrailRow(Base):
     raw_strength = Column(Float, default=0.0)  # real tool strength for completeness check
     cited = Column(Boolean, default=False)  # whether this row was cited by the decision
     step_order = Column(Integer, default=0)  # causal ordering for completeness check
+    is_evaluation = Column(Boolean, default=False, index=True)  # True if from evaluation harness
+    evaluation_run_id = Column(String, nullable=True, index=True)  # Run ID for this evaluation
     timestamp = Column(String, default=lambda: datetime.now(timezone.utc).isoformat())
 
 
