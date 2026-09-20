@@ -18,7 +18,8 @@ from app.services.trust_engine import assign_trust_tier
 from app.services.confidence_engine import calculate_confidence
 from app.services.decision_engine import evaluate_decision
 from app.services.audit_engine import verify_audit_chain, create_audit_entry, GENESIS_HASH
-from app.services.investigation import run_investigation_pipeline
+from app.services.investigation_integrated import run_investigation_pipeline_integrated
+from app.services.investigation import run_investigation_pipeline as run_investigation_pipeline_old
 from app.services.evaluator import run_evaluation_harness
 
 logger = logging.getLogger(__name__)
@@ -78,7 +79,7 @@ def investigate_incident(alert_id_str: str, req: InvestigationRequest = Investig
     """
     start_time = time.time()
     try:
-        result = run_investigation_pipeline(db, alert_id_str, scoring_method=req.scoring_method)
+        result = run_investigation_pipeline_integrated(db, alert_id_str, scoring_method=req.scoring_method)
         elapsed = time.time() - start_time
         
         # Log metrics for monitoring
