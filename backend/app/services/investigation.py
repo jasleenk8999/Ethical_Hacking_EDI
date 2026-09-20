@@ -5,6 +5,7 @@ from uuid import uuid4
 from sqlalchemy.orm import Session
 from app.models.domain import AlertRecord, Evidence, DecisionRecord, AuditTrailRow
 from app.services.evaluation_context import EvaluationContext
+from app.services.audit_appender import append_audit_record, GENESIS_HASH
 
 TRUST_WEIGHTS = {
     "VERIFIED": 1.0,
@@ -227,26 +228,20 @@ def run_investigation_pipeline(db: Session, alert_id_str: str, scoring_method: s
     db.add(db_decision)
     db.flush()
 
-    prev_audit = db.query(AuditTrailRow).order_by(AuditTrailRow.id.desc()).first()
-    prev_hash = prev_audit.current_hash if prev_audit else "0000000000000000000000000000000000000000000000000000000000000000"
-    payload = f"{alert_id_str}:{db_decision.id}:DECISION:{db_decision.decision_reason}:{prev_hash}"
-    curr_hash = hashlib.sha256(payload.encode()).hexdigest()
-
-    audit_entry = AuditTrailRow(
-        audit_id=f"AUD-{uuid4().hex[:6].upper()}",
+    # Use safe, serialized audit append to prevent concurrency race on previous_hash
+    audit_entry = append_audit_record(
+        db=db,
         alert_id=alert_id_str,
         decision_id=db_decision.id,
         event_type="DECISION_FINALIZED",
         reasoning_step=db_decision.decision_reason,
-        evidence_ids=json.dumps([e.evidence_id for e in db_evidence_list]),
-        event_content=json.dumps({"confidence": raw_decision.confidence, "llm_reported": raw_decision.llm_reported_confidence, "action": raw_decision.action}),
-        previous_hash=prev_hash,
-        current_hash=curr_hash,
-        verification_status="VALID",
-        is_evaluation=EvaluationContext.is_in_evaluation(),
-        evaluation_run_id=EvaluationContext.get_current_run_id()
+        evidence_ids=[e.evidence_id for e in db_evidence_list],
+        event_content=json.dumps({
+            "confidence": raw_decision.confidence,
+            "llm_reported": raw_decision.llm_reported_confidence,
+            "action": raw_decision.action
+        })
     )
-    db.add(audit_entry)
 
     alert_record.status = "INVESTIGATED"
     db.commit()

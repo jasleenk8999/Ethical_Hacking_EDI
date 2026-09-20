@@ -3,9 +3,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base, SessionLocal
 from app.api.router import api_router
 from app.services.seeder import seed_database
+from app.services.audit_immutability import protect_audit_immutability
 
 # Create DB tables
 Base.metadata.create_all(bind=engine)
+
+# Activate audit record immutability protection (prevent unauthorized mutations)
+protect_audit_immutability()
 
 # Initialize seed data
 db_session = SessionLocal()

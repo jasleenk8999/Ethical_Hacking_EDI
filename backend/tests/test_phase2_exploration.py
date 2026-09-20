@@ -549,3 +549,266 @@ class TestEvaluationIsolationImplementation:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s"])
+
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# NEW: Audit Concurrency & Immutability Implementation Tests (Phase 2 Slice 2)
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+class TestAuditConcurrencySafety:
+    """
+    Verify audit chain remains linear under controlled concurrent appends.
+    """
+
+    def test_audit_chain_uses_select_for_update_locking(self):
+        """
+        Verify that audit append uses SELECT FOR UPDATE for database-level serialization.
+        """
+        from app.services.audit_appender import append_audit_record
+        import inspect
+        
+        source = inspect.getsource(append_audit_record)
+        assert "with_for_update()" in source, \
+            "audit append must use with_for_update() for database-level locking"
+        assert "order_by" in source, \
+            "audit append must fetch latest record to determine previous_hash"
+
+    def test_sequential_audit_appends_maintain_linearity(self, db_session):
+        """
+        Test that sequential audit appends using safe append function produce linear chain.
+        """
+        from app.services.audit_appender import append_audit_record
+        
+        # Create first audit record
+        audit1 = append_audit_record(
+            db=db_session,
+            alert_id="SEQ-TEST-1",
+            event_type="EVENT_1",
+            event_content="Content 1"
+        )
+        db_session.commit()
+        
+        # Create second audit record (reads latest via SELECT FOR UPDATE)
+        audit2 = append_audit_record(
+            db=db_session,
+            alert_id="SEQ-TEST-2",
+            event_type="EVENT_2",
+            event_content="Content 2"
+        )
+        db_session.commit()
+        
+        # Verify chain is linear
+        assert audit2.previous_hash == audit1.current_hash, \
+            "Second audit record should reference first record's hash"
+        
+        # Verify no fork
+        audits = db_session.query(AuditTrailRow).order_by(AuditTrailRow.id).all()
+        previous_hashes = [a.previous_hash for a in audits]
+        prev_counts = {}
+        for ph in previous_hashes:
+            prev_counts[ph] = prev_counts.get(ph, 0) + 1
+        
+        for ph, count in prev_counts.items():
+            assert count == 1, f"Previous hash {ph[:16]}... referenced by {count} blocks (fork!)"
+
+
+class TestAuditImmutability:
+    """
+    Test that audit records are immutable through normal application flow.
+    """
+
+    def test_audit_record_cannot_be_updated(self, db_session):
+        """
+        Verify that audit record UPDATE is prevented by immutability protection.
+        """
+        # Create an audit record
+        audit = AuditTrailRow(
+            audit_id="AUD-IMMUT-001",
+            alert_id="ALERT-001",
+            event_type="TEST",
+            reasoning_step="Test reasoning",
+            evidence_ids="[]",
+            event_content="Test content",
+            previous_hash="0000000000000000000000000000000000000000000000000000000000000000",
+            current_hash="aaaa000000000000000000000000000000000000000000000000000000000000",
+            verification_status="VALID"
+        )
+        db_session.add(audit)
+        db_session.commit()
+        
+        # Try to modify it
+        audit.event_content = "TAMPERED"
+        
+        # Should raise error on commit
+        try:
+            db_session.commit()
+            pytest.fail("Audit update should have been prevented")
+        except RuntimeError as e:
+            assert "immutable" in str(e).lower() or "mutation" in str(e).lower()
+            db_session.rollback()
+
+    def test_audit_record_cannot_be_deleted(self, db_session):
+        """
+        Verify that audit record DELETE is prevented by immutability protection.
+        """
+        # Create an audit record
+        audit = AuditTrailRow(
+            audit_id="AUD-IMMUT-002",
+            alert_id="ALERT-002",
+            event_type="TEST",
+            reasoning_step="Test reasoning",
+            evidence_ids="[]",
+            event_content="Test content",
+            previous_hash="0000000000000000000000000000000000000000000000000000000000000000",
+            current_hash="bbbb000000000000000000000000000000000000000000000000000000000000",
+            verification_status="VALID"
+        )
+        db_session.add(audit)
+        db_session.commit()
+        
+        # Try to delete it
+        db_session.delete(audit)
+        
+        # Should raise error on commit
+        try:
+            db_session.commit()
+            pytest.fail("Audit deletion should have been prevented")
+        except RuntimeError as e:
+            assert "immutable" in str(e).lower() or "not permitted" in str(e).lower()
+            db_session.rollback()
+
+    def test_api_routes_have_no_audit_mutation_endpoints(self):
+        """
+        Verify that API router has no UPDATE/DELETE endpoints for audit records.
+        """
+        from app.api.router import api_router
+        
+        # Check all routes
+        for route in api_router.routes:
+            if hasattr(route, 'path') and 'audit' in str(route.path):
+                methods = getattr(route, 'methods', set())
+                assert 'DELETE' not in methods, f"Audit endpoint should not support DELETE"
+                assert 'PUT' not in methods, f"Audit endpoint should not support PUT"
+                assert 'PATCH' not in methods, f"Audit endpoint should not support PATCH"
+
+
+class TestToolCallEvaluationMetadata:
+    """
+    Test that ToolCall records support evaluation metadata.
+    """
+
+    def test_toolcall_model_has_evaluation_fields(self):
+        """
+        Verify ToolCall has is_evaluation and evaluation_run_id fields.
+        """
+        from app.models.domain import ToolCall
+        from sqlalchemy import inspect as sa_inspect
+        
+        mapper = sa_inspect(ToolCall)
+        columns = {c.name for c in mapper.columns}
+        
+        assert 'is_evaluation' in columns, "ToolCall missing is_evaluation"
+        assert 'evaluation_run_id' in columns, "ToolCall missing evaluation_run_id"
+
+    def test_toolcall_operational_defaults_to_non_evaluation(self, db_session):
+        """
+        Verify operational ToolCall records default to is_evaluation=false.
+        """
+        from app.models.domain import ToolCall
+        
+        tool_call = ToolCall(
+            alert_id="OP-001",
+            tool_name="Test",
+            input_query="query",
+            output_result="{}"
+        )
+        db_session.add(tool_call)
+        db_session.commit()
+        
+        fetched = db_session.query(ToolCall).filter_by(alert_id="OP-001").first()
+        assert fetched.is_evaluation is False
+        assert fetched.evaluation_run_id is None
+
+    def test_toolcall_can_be_marked_as_evaluation(self, db_session):
+        """
+        Verify evaluation ToolCall records can be marked with metadata.
+        """
+        from app.models.domain import ToolCall
+        
+        tool_call = ToolCall(
+            alert_id="EVAL-001",
+            tool_name="Test",
+            input_query="query",
+            output_result="{}",
+            is_evaluation=True,
+            evaluation_run_id="EVAL-20260817-TEST"
+        )
+        db_session.add(tool_call)
+        db_session.commit()
+        
+        fetched = db_session.query(ToolCall).filter_by(alert_id="EVAL-001").first()
+        assert fetched.is_evaluation is True
+        assert fetched.evaluation_run_id == "EVAL-20260817-TEST"
+
+
+class TestAuditChainVerification:
+    """
+    Test audit chain verification with various scenarios.
+    """
+
+    def test_audit_chain_verifies_empty(self):
+        """Empty chain should verify successfully."""
+        result = verify_audit_chain([])
+        assert result["verified"] is True
+
+    def test_audit_chain_detects_broken_link(self):
+        """Chain with mismatched previous hash should fail verification."""
+        records = [
+            {
+                "previous_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+                "current_hash": "hash1",
+                "timestamp": "2026-08-17T00:00:00",
+                "event_type": "TEST",
+                "event_content": "Block 1"
+            },
+            {
+                "previous_hash": "wrong_hash",  # Should match hash1
+                "current_hash": "hash2",
+                "timestamp": "2026-08-17T00:01:00",
+                "event_type": "TEST",
+                "event_content": "Block 2"
+            }
+        ]
+        result = verify_audit_chain(records)
+        assert result["verified"] is False
+        assert 1 in result["tampered_indices"]
+
+    def test_audit_chain_detects_modified_content(self):
+        """Chain with modified event_content should fail verification."""
+        from app.services.audit_engine import compute_hash
+        
+        ts = "2026-08-17T00:00:00"
+        et = "TEST"
+        
+        # Create valid hash
+        original_content = "Original"
+        valid_hash = compute_hash("0000000000000000000000000000000000000000000000000000000000000000", ts, et, original_content)
+        
+        # Now use wrong hash with modified content
+        records = [
+            {
+                "previous_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+                "current_hash": valid_hash,
+                "timestamp": ts,
+                "event_type": et,
+                "event_content": "Modified content"  # Changed!
+            }
+        ]
+        
+        result = verify_audit_chain(records)
+        assert result["verified"] is False
+        assert 0 in result["tampered_indices"]
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v", "-s"])

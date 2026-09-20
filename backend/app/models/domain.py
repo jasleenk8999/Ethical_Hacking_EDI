@@ -34,6 +34,8 @@ class ToolCall(Base):
     input_query = Column(Text, nullable=False)
     output_result = Column(Text, nullable=False)  # JSON formatted string
     execution_time_ms = Column(Float, default=0.0)
+    is_evaluation = Column(Boolean, default=False, index=True)  # True if from evaluation harness
+    evaluation_run_id = Column(String, nullable=True, index=True)  # Run ID for this evaluation
     timestamp = Column(String, default=lambda: datetime.now(timezone.utc).isoformat())
 
 
