@@ -2,14 +2,12 @@
 CAIRA Phase 2 Architecture Hardening - Exploration & Preservation Tests
 
 This test module implements Phase 1 of the Phase 2 hardening plan:
-1. EXPLORATION TESTS - Prove Phase 2 defects exist in current implementation (intentionally FAIL)
-2. PRESERVATION TESTS - Prove existing Phase 1 behavior remains unchanged (should PASS)
-
-DO NOT RUN AS PRODUCTION TEST SUITE YET.
+1. EXPLORATION TESTS - Expected to XFAIL on unfixed code, XPASS after fixes
+2. PRESERVATION TESTS - Must PASS on both fixed and unfixed code
 
 These tests are designed to:
-- Surface concrete counterexamples for each Phase 2 defect
-- Establish baseline behavior for preservation verification
+- Surface concrete counterexamples for each Phase 2 defect (expected to fail now)
+- Establish baseline behavior for preservation verification (must always pass)
 - Document expected vs actual behavior for future fix validation
 """
 
@@ -60,12 +58,13 @@ def db_session(db_engine):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# EXPLORATION TESTS - Phase 2 Defects (These should FAIL on unfixed code)
+# EXPLORATION TESTS - Phase 2 Defects (Expected to XFAIL before fixes)
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
+@pytest.mark.xfail(reason="DEFECT 1.9: is_evaluation flag not yet implemented", strict=False)
 class TestExplorationEvaluationPollution:
     """
-    DEFECT 1.1 / 1.2: Evaluation Pollution
+    DEFECT 1.1 / 1.2 / 1.9: Evaluation Pollution
     
     CURRENT BEHAVIOR (DEFECT):
     - Evaluation runs create normal Alert, Evidence, Decision, AuditTrail records
@@ -81,8 +80,7 @@ class TestExplorationEvaluationPollution:
         """
         EXPLORATION 1.9: Prove evaluation records lack is_evaluation flag.
         
-        This test SHOULD FAIL on unfixed code.
-        Reason: Alert, Evidence, Decision models don't have is_evaluation column
+        Expected: to XFAIL before fix, XPASS after fix.
         """
         # Seed scenarios if needed
         if not db_session.query(Scenario).first():
@@ -92,10 +90,7 @@ class TestExplorationEvaluationPollution:
             db_session.commit()
 
         # Run evaluation harness
-        try:
-            run_evaluation_harness(db_session, agent_type="CAIRA-v1.0")
-        except Exception as e:
-            pytest.skip(f"Evaluation harness failed (expected): {e}")
+        run_evaluation_harness(db_session, agent_type="CAIRA-v1.0")
 
         # Check if evaluation records have is_evaluation field
         first_alert = db_session.query(AlertRecord).first()
@@ -104,24 +99,22 @@ class TestExplorationEvaluationPollution:
 
         # EXPECTED (after fix): All have is_evaluation=True
         # ACTUAL (current code): AttributeError or None (field doesn't exist)
-        if first_alert and first_evidence and first_decision:
-            has_alert_flag = hasattr(first_alert, 'is_evaluation')
-            has_evidence_flag = hasattr(first_evidence, 'is_evaluation')
-            has_decision_flag = hasattr(first_decision, 'is_evaluation')
+        assert first_alert and first_evidence and first_decision, \
+            "No evaluation records created"
+        
+        has_alert_flag = hasattr(first_alert, 'is_evaluation')
+        has_evidence_flag = hasattr(first_evidence, 'is_evaluation')
+        has_decision_flag = hasattr(first_decision, 'is_evaluation')
 
-            if not (has_alert_flag and has_evidence_flag and has_decision_flag):
-                pytest.skip(
-                    f"Confirmed DEFECT 1.9: Missing is_evaluation flags. "
-                    f"Alert={has_alert_flag}, Evidence={has_evidence_flag}, Decision={has_decision_flag}"
-                )
+        assert has_alert_flag and has_evidence_flag and has_decision_flag, \
+            f"Missing is_evaluation flags: Alert={has_alert_flag}, Evidence={has_evidence_flag}, Decision={has_decision_flag}"
 
     def test_evaluation_pollution_increases_metrics(self, db_session):
         """
         EXPLORATION 1.1-1.2: Prove that running evaluation twice increases metrics
         (demonstrating evaluation pollution).
         
-        This test SHOULD FAIL on unfixed code.
-        Reason: Evaluation records pollute operational metrics
+        Expected: to XFAIL before fix, XPASS after fix.
         """
         # Seed scenarios
         if not db_session.query(Scenario).first():
@@ -131,25 +124,20 @@ class TestExplorationEvaluationPollution:
             db_session.commit()
 
         # Run evaluation harness first time
-        try:
-            results_1 = run_evaluation_harness(db_session, agent_type="CAIRA-v1.0")
-            count_after_run_1 = db_session.query(DecisionRecord).count()
+        results_1 = run_evaluation_harness(db_session, agent_type="CAIRA-v1.0")
+        count_after_run_1 = db_session.query(DecisionRecord).count()
 
-            # Run evaluation harness second time (deterministic scenarios)
-            results_2 = run_evaluation_harness(db_session, agent_type="CAIRA-v1.0")
-            count_after_run_2 = db_session.query(DecisionRecord).count()
+        # Run evaluation harness second time (deterministic scenarios)
+        results_2 = run_evaluation_harness(db_session, agent_type="CAIRA-v1.0")
+        count_after_run_2 = db_session.query(DecisionRecord).count()
 
-            # EXPECTED (after fix): count_after_run_2 == count_after_run_1 (evaluation records excluded)
-            # ACTUAL (current code): count_after_run_2 > count_after_run_1 (records pollute metrics)
-            if count_after_run_2 > count_after_run_1:
-                pytest.skip(
-                    f"Confirmed DEFECT 1.1-1.2: Evaluation pollution. "
-                    f"Run 1={count_after_run_1}, Run 2={count_after_run_2} (should be equal)"
-                )
-        except Exception as e:
-            pytest.skip(f"Evaluation harness failed (expected): {e}")
+        # EXPECTED (after fix): count_after_run_2 == count_after_run_1 (evaluation records excluded/isolated)
+        # ACTUAL (current code): count_after_run_2 > count_after_run_1 (records pollute metrics)
+        assert count_after_run_2 == count_after_run_1, \
+            f"Evaluation pollution detected. Run 1={count_after_run_1}, Run 2={count_after_run_2} (should be equal)"
 
 
+@pytest.mark.xfail(reason="DEFECT 1.7: Hardcoded thresholds not yet centralized", strict=False)
 class TestExplorationDecisionPolicyScatter:
     """
     DEFECT 1.7: Decision Policy Scattered
@@ -168,7 +156,7 @@ class TestExplorationDecisionPolicyScatter:
         """
         EXPLORATION 1.7: Prove hardcoded thresholds exist across files.
         
-        This test documents the current state rather than modifying code.
+        Expected: to XFAIL before fix, XPASS after fix.
         """
         backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         threshold_files = {}
@@ -196,14 +184,12 @@ class TestExplorationDecisionPolicyScatter:
                     except (IOError, UnicodeDecodeError):
                         pass
 
-        # If multiple files contain hardcoded thresholds, confirm defect
-        if len(threshold_files) > 1:
-            files_with_hardcoded = ', '.join(threshold_files.keys())
-            pytest.skip(
-                f"Confirmed DEFECT 1.7: Hardcoded thresholds in {len(threshold_files)} files: {files_with_hardcoded}"
-            )
+        # If multiple files contain hardcoded thresholds, test should fail
+        assert len(threshold_files) <= 1, \
+            f"Hardcoded thresholds in {len(threshold_files)} files: {list(threshold_files.keys())}"
 
 
+@pytest.mark.xfail(reason="DEFECT 1.3-1.4: Audit concurrency locking not yet implemented", strict=False)
 class TestExplorationAuditConcurrency:
     """
     DEFECT 1.3 / 1.4: Audit Chain Concurrency Race
@@ -223,8 +209,7 @@ class TestExplorationAuditConcurrency:
         """
         EXPLORATION 1.3-1.4: Prove concurrent investigations create audit chain fork.
         
-        This test SHOULD FAIL on unfixed code by detecting multiple blocks
-        with same previous_hash.
+        Expected: to XFAIL before fix, XPASS after fix.
         """
         # Create two distinct alerts
         alert_1 = AlertRecord(
@@ -264,8 +249,7 @@ class TestExplorationAuditConcurrency:
         t2.join()
 
         # Check if any errors occurred
-        if errors:
-            pytest.skip(f"Concurrent investigation encountered errors: {errors}")
+        assert not errors, f"Concurrent investigation encountered errors: {errors}"
 
         # Fetch all audit records
         audits = db_session.query(AuditTrailRow).order_by(AuditTrailRow.id).all()
@@ -279,21 +263,18 @@ class TestExplorationAuditConcurrency:
 
             # If any previous_hash appears more than once, there's a fork
             forks = {ph: count for ph, count in prev_hash_counts.items() if count > 1}
-            if forks:
-                pytest.skip(
-                    f"Confirmed DEFECT 1.3-1.4: Audit chain fork detected. "
-                    f"Multiple blocks reference same parent hash: {list(forks.keys())[:1]}"
-                )
+            assert not forks, \
+                f"Audit chain fork detected. Multiple blocks reference same parent hash: {list(forks.keys())[:1]}"
 
         # Verify chain remains linear
         if audits:
             verification = verify_audit_chain(audits)
-            if not verification["verified"]:
-                pytest.skip(f"Confirmed DEFECT 1.3-1.4: Chain verification failed.")
+            assert verification["verified"], \
+                f"Chain verification failed: {verification.get('status_message', 'Unknown error')}"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════════════
-# PRESERVATION TESTS - Phase 1 Behavior (These should PASS on both fixed and unfixed code)
+# PRESERVATION TESTS - Phase 1 Behavior (Must PASS on both fixed and unfixed code)
 # ═══════════════════════════════════════════════════════════════════════════════════════
 
 class TestPreservationConfidenceCalculation:
