@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AlertOctagon, ExternalLink, ChevronRight, Shield, Hash, BarChart3, Lock } from "lucide-react";
+import { ExternalLink, ChevronRight, Shield, Hash, BarChart3, Lock } from "lucide-react";
 
 const PIPELINE_STEPS = [
   {
@@ -66,8 +66,9 @@ const CAPABILITIES = [
 export default function LandingPage() {
   return (
     <div
+      className="landing-shell"
       style={{
-        maxWidth: 960,
+        maxWidth: 1100,
         margin: "0 auto",
         padding: "32px 0",
         display: "flex",
@@ -77,6 +78,7 @@ export default function LandingPage() {
     >
       {/* ── HEADER ── */}
       <div
+        className="landing-hero"
         style={{
           display: "flex",
           alignItems: "flex-start",
@@ -235,6 +237,7 @@ export default function LandingPage() {
               )}
               {/* Node */}
               <div
+                className={`pipeline-node${i === 0 ? " pipeline-node-alert" : i === 1 ? " pipeline-node-primary" : ""}`}
                 style={{
                   width: 40,
                   height: 40,
@@ -309,7 +312,7 @@ export default function LandingPage() {
                 >
                   <Icon style={{ width: 14, height: 14, color: cap.accent }} />
                 </div>
-                <span style={{ fontSize: 13, fontWeight: 600, color: "#d1dae8" }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
                   {cap.title}
                 </span>
               </div>
@@ -374,7 +377,7 @@ export default function LandingPage() {
                 desc: "Alert logged, no containment action initiated",
               },
             ].map((row) => (
-              <tr key={row.band} className="data-row" style={{ borderBottom: "1px solid #1a1e28" }}>
+              <tr key={row.band} className="data-row" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
                 <td style={{ padding: "10px 16px", fontFamily: "monospace", fontSize: 12, color: "var(--text-secondary)", fontWeight: 600 }}>
                   {row.band}
                 </td>

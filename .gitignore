@@ -63,3 +63,19 @@ PHASE2_FINAL_VERIFICATION.md
 SETUP_COMPLETE.md
 SLICE3_VERIFICATION_REPORT.md
 .kiro/specs/
+.venv/
+venv/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+
+# Local tooling
+.vscode/
+.DS_Store
