@@ -2,7 +2,6 @@ import json
 from sqlalchemy.orm import Session
 from app.models.domain import Alert, Scenario, AuditTrail
 from app.services.audit_engine import GENESIS_HASH
-from app.services.investigation import run_investigation_pipeline
 from app.services.evaluator import PREDEFINED_SCENARIOS, run_evaluation_harness
 
 SAMPLE_ALERTS = [
@@ -147,14 +146,8 @@ def seed_database(db: Session):
             db.add(sc)
         db.commit()
 
-    # 3. Investigate the first 5 alerts so initial dashboard statistics are rich
-    alerts_to_investigate = db.query(Alert).limit(5).all()
-    for a in alerts_to_investigate:
-        if a.status == "INGESTED":
-            try:
-                run_investigation_pipeline(db, a.alert_id)
-            except Exception as e:
-                print(f"Error seeding investigation for {a.alert_id}: {e}")
+    # 3. Skip seeded investigations at startup — investigations are run on-demand
+    #    via POST /api/incidents/{alert_id}/investigate to avoid blocking server startup.
 
     # 4. Run evaluation harness for CAIRA and Baseline Agent
     try:

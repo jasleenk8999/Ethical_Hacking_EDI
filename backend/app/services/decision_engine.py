@@ -1,27 +1,36 @@
 from typing import Dict, Any, List
+from app.services.decision_policy import (
+    classify_confidence,
+    get_action_for_classification,
+    get_decision_reason,
+    is_containment_authorized
+)
+
 
 def evaluate_decision(confidence_data: Dict[str, Any], alert: Dict[str, Any], evidence_list: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
-    Evaluates evidence confidence against deterministic decision thresholds.
+    Evaluates evidence confidence against centralized decision thresholds.
     All containment actions are SIMULATED only.
+    
+    Uses DecisionPolicy for all classification and action logic.
     """
     confidence = confidence_data["confidence"]
     alert_type = alert.get("type", "Alert")
     target_asset = alert.get("target_asset", "Asset")
     source_ip = alert.get("source_ip", "0.0.0.0")
 
+    # Count evidence by trust tier
     verified_count = sum(1 for e in evidence_list if e.get("trust_tier") == "VERIFIED")
     corroborated_count = sum(1 for e in evidence_list if e.get("trust_tier") == "CORROBORATED")
     untrusted_count = sum(1 for e in evidence_list if e.get("trust_tier") == "UNTRUSTED")
 
-    if confidence >= 0.75:
-        classification = "MALICIOUS"
-        action = f"SIMULATED CONTAINMENT — Host Isolation ({target_asset}) & IP Block ({source_ip})"
-        decision_reason = (
-            f"High confidence score ({confidence:.2f} >= 0.75) supported by {verified_count} Verified "
-            f"and {corroborated_count} Corroborated evidence items. Automated simulated containment initiated. "
-            f"[SIMULATION MODE — NO REAL INFRASTRUCTURE MODIFIED]"
-        )
+    # Use centralized policy for classification
+    classification = classify_confidence(confidence)
+    action = get_action_for_classification(classification, alert)
+    decision_reason = get_decision_reason(classification, confidence, evidence_list)
+
+    # Build simulated containment detail if authorized
+    if is_containment_authorized(classification):
         simulated_detail = {
             "containment_type": "Host Isolation & Firewall Rule Ingestion",
             "target_host": target_asset,
@@ -29,14 +38,7 @@ def evaluate_decision(confidence_data: Dict[str, Any], alert: Dict[str, Any], ev
             "safety_banner": "SIMULATION MODE — NO REAL INFRASTRUCTURE MODIFIED",
             "execution_status": "SUCCESS (SIMULATED)"
         }
-    elif confidence >= 0.40:
-        classification = "UNCERTAIN"
-        action = "ESCALATE TO HUMAN ANALYST"
-        decision_reason = (
-            f"Moderate confidence score ({confidence:.2f} in band [0.40, 0.75]). Evidence score is indeterminate "
-            f"or contains conflicting indicators ({untrusted_count} untrusted sources). Direct containment withheld; "
-            f"escalated to Tier-2 SOC Analyst for human-in-the-loop review."
-        )
+    elif classification == "UNCERTAIN":
         simulated_detail = {
             "escalation_target": "SOC Tier-2 Review Queue",
             "analyst_brief": {
@@ -50,13 +52,7 @@ def evaluate_decision(confidence_data: Dict[str, Any], alert: Dict[str, Any], ev
                 ]
             }
         }
-    else:
-        classification = "BENIGN"
-        action = "NO ACTION"
-        decision_reason = (
-            f"Low confidence score ({confidence:.2f} < 0.40). Evidence indicates benign operational noise or false alarm. "
-            f"No containment required. Ticket closed with monitoring logging."
-        )
+    else:  # BENIGN
         simulated_detail = {
             "monitoring_status": "Active Surveillance",
             "safety_banner": "Event classified as benign. Continue monitoring.",

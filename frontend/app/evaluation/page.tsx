@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Play, CheckCircle2, AlertTriangle, BarChart3, Sparkles, ShieldCheck } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Play, CheckCircle2, AlertTriangle, BarChart3, Sparkles, ShieldCheck, Info } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import MetricCard from "@/components/MetricCard";
 import { fetchEvaluationResults, runEvaluationHarness } from "@/lib/api";
 
-// ─── Divider ──────────────────────────────────────────────────────────────────
 function Divider({ label }: { label: string }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
@@ -18,7 +17,6 @@ function Divider({ label }: { label: string }) {
   );
 }
 
-// ─── Classification badge ─────────────────────────────────────────────────────
 function ClsBadge({ cls }: { cls: string }) {
   const style =
     cls === "MALICIOUS" ? { color: "#f87171", bg: "rgba(248,113,113,0.1)", border: "rgba(248,113,113,0.25)" } :
@@ -31,28 +29,46 @@ function ClsBadge({ cls }: { cls: string }) {
   );
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
 export default function EvaluationHarnessPage() {
   const [evalData, setEvalData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
+  const [notImplementedError, setNotImplementedError] = useState(false);
 
   const loadResults = () => {
     fetchEvaluationResults()
-      .then((data) => { setEvalData(data); setLoading(false); })
-      .catch((err) => { console.error("Error loading evaluation data:", err); setLoading(false); });
+      .then((data) => {
+        if (data?.status === "not-yet-implemented" || data?.error) {
+          setNotImplementedError(true);
+        } else {
+          setEvalData(data);
+          setNotImplementedError(false);
+        }
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Error loading evaluation data:", err);
+        setNotImplementedError(true);
+        setLoading(false);
+      });
   };
 
   useEffect(() => { loadResults(); }, []);
 
   const handleRunEvaluation = async () => {
     setRunning(true);
+    setNotImplementedError(false);
     try {
-      await runEvaluationHarness("CAIRA-v1.0");
-      await runEvaluationHarness("Baseline-Mock");
-      loadResults();
+      const res = await runEvaluationHarness("CAIRA-v1.0");
+      if (res?.status === "not-yet-implemented") {
+        setNotImplementedError(true);
+      } else {
+        await runEvaluationHarness("Baseline-Mock");
+        loadResults();
+      }
     } catch (err) {
       console.error("Evaluation run error:", err);
+      setNotImplementedError(true);
     } finally {
       setRunning(false);
     }
@@ -93,6 +109,20 @@ export default function EvaluationHarnessPage() {
           {running ? "Running Evaluation Suite…" : "Run Evaluation Suite"}
         </button>
       </div>
+
+      {notImplementedError && (
+        <div style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.25)", borderLeft: "3px solid #fbbf24", borderRadius: 5, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+          <Info style={{ width: 18, height: 18, color: "#fbbf24", flexShrink: 0 }} />
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "#fbbf24" }}>
+              Real Evaluation Harness Status
+            </div>
+            <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+              Real evaluation harness requires full agent run; mock evaluation disabled per system spec. Run an investigation to generate benchmark evaluations.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Metrics strip ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 10 }}>
@@ -155,7 +185,7 @@ export default function EvaluationHarnessPage() {
             <tbody>
               {(evalData?.scenarios || []).map((sc: any, idx: number) => (
                 <tr
-                  key={sc.id}
+                  key={sc.id || idx}
                   className="data-row"
                   style={{ borderBottom: "1px solid var(--bg-surface)" }}
                 >
@@ -166,26 +196,26 @@ export default function EvaluationHarnessPage() {
                     {sc.scenario_name}
                   </td>
                   <td style={{ padding: "9px 14px", fontFamily: "monospace", fontWeight: 700, color: "var(--text-secondary)" }}>
-                    {sc.confidence.toFixed(2)}
+                    {(sc.confidence || 0).toFixed(2)}
                   </td>
                   <td style={{ padding: "9px 14px" }}>
-                    <ClsBadge cls={sc.predicted} />
+                    <ClsBadge cls={sc.predicted || sc.predicted_class} />
                   </td>
                   <td style={{ padding: "9px 14px", fontSize: 11, color: "var(--text-muted)" }}>
-                    {sc.expected}
+                    {sc.expected || sc.expected_class}
                   </td>
                   <td style={{ padding: "9px 14px", fontSize: 11, color: "var(--text-muted)" }}>
                     {sc.action}
                   </td>
                   <td style={{ padding: "9px 14px", fontFamily: "monospace", fontWeight: 700, color: "#34d399" }}>
-                    {(sc.egar * 100).toFixed(0)}%
+                    {((sc.egar || 1.0) * 100).toFixed(0)}%
                   </td>
                 </tr>
               ))}
               {(!evalData?.scenarios || evalData.scenarios.length === 0) && (
                 <tr>
                   <td colSpan={7} style={{ padding: "28px 14px", textAlign: "center", color: "var(--text-muted)", fontSize: 12 }}>
-                    No evaluation data. Run the evaluation suite to populate results.
+                    Click "Run Evaluation Suite" to run benchmark scenarios against the database.
                   </td>
                 </tr>
               )}

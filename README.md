@@ -89,11 +89,37 @@ npm run dev
 4. Watch the 10-stage pipeline execute, inspect the 3 tool lookups, view trust tier badges, and examine the decision modal.
 5. Navigate to **Audit Trail** and click **Verify Audit Integrity** to recompute SHA-256 hashes across all blocks.
 6. Navigate to **Evaluation Harness** and click **Run Evaluation Suite** to compare CAIRA against the Baseline Agent.
-# Ethical_Hacking_EDI
-# Ethical_Hacking_EDI
-# Ethical_Hacking_EDI
-# Ethical_Hacking_EDI
-# Ethical_Hacking_EDI
-# CAIRA_1
-# CAIRA_1
-# CAIRA_1
+
+---
+
+## LLM Provider Configuration
+
+CAIRA supports multiple LLM providers via `backend/config.yaml`. The active provider is set with `agent.provider`:
+
+```yaml
+agent:
+  provider: bharatcode   # "anthropic" or "bharatcode"
+  max_iterations: 15
+  anthropic:
+    model: claude-3-5-sonnet-20240620
+  bharatcode:
+    model: bharatcode:qwen36-35b-q6-256k-vision
+    base_url: https://bharatcode.ai/api/model/v1
+```
+
+### Environment Variables
+
+Copy `backend/.env.example` to `backend/.env` and set the required API key for your chosen provider:
+
+| Variable | Required When | Description |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | `provider: anthropic` | Anthropic API key for Claude models |
+| `BHARATCODE_API_KEY` | `provider: bharatcode` | BharatCode API key for Qwen models |
+
+The app will **fail fast** at startup if the required API key for the configured provider is missing — no silent fallbacks.
+
+### Switching Providers
+
+1. Edit `backend/config.yaml` and set `agent.provider` to your desired provider.
+2. Set the corresponding environment variable.
+3. Restart the backend server.

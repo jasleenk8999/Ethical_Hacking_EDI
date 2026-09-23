@@ -2,7 +2,9 @@ import json
 import random
 from typing import List, Dict, Any
 from sqlalchemy.orm import Session
-from app.models.domain import Scenario, Evaluation
+from app.models.domain import Scenario, Evaluation, AlertRecord
+from app.services.evaluation_context import evaluation_run
+from app.services.investigation import run_investigation_pipeline
 
 PREDEFINED_SCENARIOS = [
     {
@@ -119,84 +121,96 @@ PREDEFINED_SCENARIOS = [
     }
 ]
 
-def run_evaluation_harness(db: Session, agent_type: str = "CAIRA-v1.0") -> List[Dict[str, Any]]:
+
+def run_evaluation_harness(db: Session, agent_type: str = "CAIRA-v1.0") -> Dict[str, Any]:
     """
     Runs full evaluation benchmark across all preset scenarios.
-    Compares CAIRA (Evidence-Gated) vs Baseline Agent (Heuristic/Severity-only).
-    """
-    scenarios = db.query(Scenario).all()
-    if not scenarios:
-        # Seed scenarios if empty
-        for s_data in PREDEFINED_SCENARIOS:
-            sc = Scenario(**s_data)
-            db.add(sc)
-        db.commit()
-        scenarios = db.query(Scenario).all()
-
-    results = []
     
-    for sc in scenarios:
-        config = json.loads(sc.configuration)
-        expected_class = sc.expected_result
+    Creates a new, unique evaluation run with its own run ID.
+    Each run is independently inspectable via the evaluation_run_id.
+    
+    Returns:
+        Dict containing run_id and evaluation records
+    """
+    with evaluation_run() as run_id:
+        scenarios = db.query(Scenario).all()
+        if not scenarios:
+            # Seed scenarios if empty
+            for s_data in PREDEFINED_SCENARIOS:
+                sc = Scenario(**s_data)
+                db.add(sc)
+            db.commit()
+            scenarios = db.query(Scenario).all()
 
-        if agent_type == "Baseline-Mock":
-            # Baseline Agent makes hasty decisions based strictly on Alert Type / Severity
-            # High false positive rate & no evidence gating
-            if "Brute" in sc.name or "Malware" in sc.name or "Conflicting" in sc.name or "Misleading" in sc.name or "Critical" in sc.name:
-                predicted_class = "MALICIOUS"
-                action = "CONTAINED (UNVERIFIED)"
-                conf = round(random.uniform(0.76, 0.95), 2)
-            else:
-                predicted_class = "BENIGN"
-                action = "NO ACTION"
-                conf = round(random.uniform(0.10, 0.35), 2)
+        results = []
+        
+        for sc in scenarios:
+            config = json.loads(sc.configuration)
+            expected_class = sc.expected_result
 
-            egar = 0.25 # Low evidence-gated action rate
-            fp = (predicted_class == "MALICIOUS" and expected_class != "MALICIOUS")
-            audit_comp = 0.40 # Lacks structured evidence audit
-            traceability = 0.30
-            ttfc = 0.1
-            blast_rad = "High" if fp else "Low"
-            calib_err = round(abs(conf - (1.0 if expected_class == "MALICIOUS" else 0.0)), 2)
+            if agent_type == "Baseline-Mock":
+                # Baseline Agent makes hasty decisions based strictly on Alert Type / Severity
+                if "Brute" in sc.name or "Malware" in sc.name or "Conflicting" in sc.name or "Misleading" in sc.name or "Critical" in sc.name:
+                    predicted_class = "MALICIOUS"
+                    action = "CONTAINED (UNVERIFIED)"
+                    conf = round(random.uniform(0.76, 0.95), 2)
+                else:
+                    predicted_class = "BENIGN"
+                    action = "NO ACTION"
+                    conf = round(random.uniform(0.10, 0.35), 2)
 
-        else: # CAIRA-v1.0 (Evidence-Gated Agent)
-            conf = float(config.get("expected_confidence", 0.75))
-            if conf >= 0.75:
-                predicted_class = "MALICIOUS"
-                action = "SIMULATED CONTAINMENT"
-            elif conf >= 0.40:
-                predicted_class = "UNCERTAIN"
-                action = "ESCALATE TO HUMAN ANALYST"
-            else:
-                predicted_class = "BENIGN"
-                action = "NO ACTION"
+                egar = 0.25
+                fp = (predicted_class == "MALICIOUS" and expected_class != "MALICIOUS")
+                audit_comp = 0.40
+                traceability = 0.30
+                ttfc = 0.1
+                blast_rad = "High" if fp else "Low"
+                calib_err = round(abs(conf - (1.0 if expected_class == "MALICIOUS" else 0.0)), 2)
 
-            egar = 1.0 # High evidence-gated action rate (100%)
-            fp = (predicted_class == "MALICIOUS" and expected_class != "MALICIOUS")
-            audit_comp = 1.0 # 100% complete SHA-256 audit trail
-            traceability = 1.0
-            ttfc = round(random.uniform(0.8, 1.4), 2)
-            blast_rad = "Low"
-            calib_err = round(abs(conf - (1.0 if expected_class == "MALICIOUS" else (0.5 if expected_class == "UNCERTAIN" else 0.0))), 2)
+            else:  # CAIRA-v1.0 (Evidence-Gated Agent)
+                conf = float(config.get("expected_confidence", 0.75))
+                if conf >= 0.75:
+                    predicted_class = "MALICIOUS"
+                    action = "SIMULATED CONTAINMENT"
+                elif conf >= 0.40:
+                    predicted_class = "UNCERTAIN"
+                    action = "ESCALATE TO HUMAN ANALYST"
+                else:
+                    predicted_class = "BENIGN"
+                    action = "NO ACTION"
 
-        eval_record = Evaluation(
-            scenario_id=sc.scenario_id,
-            scenario_name=sc.name,
-            agent_version=agent_type,
-            confidence=conf,
-            predicted_class=predicted_class,
-            expected_class=expected_class,
-            action=action,
-            egar=egar,
-            false_positive=fp,
-            audit_completeness=audit_comp,
-            traceability=traceability,
-            ttfc=ttfc,
-            blast_radius=blast_rad,
-            calibration_error=calib_err
-        )
-        db.add(eval_record)
-        results.append(eval_record)
+                egar = 1.0
+                fp = (predicted_class == "MALICIOUS" and expected_class != "MALICIOUS")
+                audit_comp = 1.0
+                traceability = 1.0
+                ttfc = round(random.uniform(0.8, 1.4), 2)
+                blast_rad = "Low"
+                calib_err = round(abs(conf - (1.0 if expected_class == "MALICIOUS" else (0.5 if expected_class == "UNCERTAIN" else 0.0))), 2)
 
-    db.commit()
-    return results
+            eval_record = Evaluation(
+                scenario_id=sc.scenario_id,
+                scenario_name=sc.name,
+                agent_version=agent_type,
+                confidence=conf,
+                predicted_class=predicted_class,
+                expected_class=expected_class,
+                action=action,
+                egar=egar,
+                false_positive=fp,
+                audit_completeness=audit_comp,
+                traceability=traceability,
+                ttfc=ttfc,
+                blast_radius=blast_rad,
+                calibration_error=calib_err
+            )
+            db.add(eval_record)
+            results.append(eval_record)
+
+        db.commit()
+        
+        return {
+            "evaluation_run_id": run_id,
+            "agent_type": agent_type,
+            "scenarios_evaluated": len(results),
+            "evaluation_records": results
+        }

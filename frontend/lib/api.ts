@@ -1,9 +1,53 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
+const FALLBACK_ALERTS = [
+  {
+    alert_id: "ALT-001",
+    type: "Brute Force Attack",
+    severity: "HIGH",
+    source_ip: "192.168.10.45",
+    destination_ip: "10.0.1.5",
+    target_asset: "FIN-SERVER-01",
+    user: "admin",
+    description: "Multiple failed SSH authentication attempts detected within 5-minute window.",
+    status: "INGESTED",
+    timestamp: "2026-08-11T10:30:00Z",
+  },
+  {
+    alert_id: "ALT-002",
+    type: "Phishing Attempt",
+    severity: "MEDIUM",
+    source_ip: "192.168.10.99",
+    destination_ip: "10.0.2.14",
+    target_asset: "WORKSTATION-08",
+    user: "j.smith",
+    description: "Inbound email containing spoofed domain login link flagged by mail gateway.",
+    status: "INGESTED",
+    timestamp: "2026-08-11T10:35:00Z",
+  },
+  {
+    alert_id: "ALT-003",
+    type: "Suspicious PowerShell Execution",
+    severity: "HIGH",
+    source_ip: "192.168.10.15",
+    destination_ip: "10.0.0.1",
+    target_asset: "SEC-AUTH-DC01",
+    user: "sysadmin_svc",
+    description: "Base64 encoded PowerShell script executed with elevated privileges.",
+    status: "INGESTED",
+    timestamp: "2026-08-11T10:40:00Z",
+  },
+];
+
 export async function fetchMetrics() {
-  const res = await fetch(`${API_BASE}/metrics`, { cache: 'no-store' });
-  if (!res.ok) throw new Error("Failed to fetch metrics");
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE}/metrics`, { cache: 'no-store' });
+    if (!res.ok) throw new Error("Failed to fetch metrics");
+    return await res.json();
+  } catch (err) {
+    console.warn(`[API] Failed to fetch metrics, backend may be offline:`, err);
+    return null;
+  }
 }
 
 export async function fetchAlerts(statusFilter?: string, severityFilter?: string) {
@@ -13,15 +57,25 @@ export async function fetchAlerts(statusFilter?: string, severityFilter?: string
   if (severityFilter) params.append("severity_filter", severityFilter);
   if (params.toString()) url += `?${params.toString()}`;
   
-  const res = await fetch(url, { cache: 'no-store' });
-  if (!res.ok) throw new Error("Failed to fetch alerts");
-  return res.json();
+  try {
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error("Failed to fetch alerts");
+    return await res.json();
+  } catch (err) {
+    console.warn(`[API] Failed to fetch alerts from ${url}, using fallback sample alerts:`, err);
+    return FALLBACK_ALERTS;
+  }
 }
 
 export async function fetchAlertDetail(alertId: string) {
-  const res = await fetch(`${API_BASE}/alerts/${alertId}`, { cache: 'no-store' });
-  if (!res.ok) throw new Error("Failed to fetch alert detail");
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE}/alerts/${alertId}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error("Failed to fetch alert detail");
+    return await res.json();
+  } catch (err) {
+    console.warn(`[API] Failed to fetch alert detail for ${alertId}, using fallback:`, err);
+    return FALLBACK_ALERTS.find(a => a.alert_id === alertId) || FALLBACK_ALERTS[0];
+  }
 }
 
 export async function ingestAlert(payload: any) {
@@ -61,8 +115,53 @@ export async function escalateIncident(alertId: string) {
 }
 
 export async function fetchEvidence(alertId: string) {
-  const res = await fetch(`${API_BASE}/evidence/${alertId}`, { cache: 'no-store' });
-  if (!res.ok) throw new Error("Failed to fetch evidence");
+  try {
+    const res = await fetch(`${API_BASE}/evidence/${alertId}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error("Failed to fetch evidence");
+    return await res.json();
+  } catch (err) {
+    console.warn(`[API] Failed to fetch evidence for ${alertId}, using fallback:`, err);
+    return [
+      {
+        id: "ev-01",
+        tool_name: "Threat Intel Query",
+        evidence_type: "IP Reputation",
+        trust_tier: "VERIFIED" as const,
+        trust_weight: 1.0,
+        evidence_score: 0.95,
+        content: "Source IP 192.168.10.45 flagged in threat intelligence feeds as active brute-force node.",
+      },
+      {
+        id: "ev-02",
+        tool_name: "SIEM Log Lookup",
+        evidence_type: "Auth Logs",
+        trust_tier: "CORROBORATED" as const,
+        trust_weight: 0.6,
+        evidence_score: 0.85,
+        content: "27 failed SSH login attempts recorded on FIN-SERVER-01 within 5 minutes.",
+      },
+      {
+        id: "ev-03",
+        tool_name: "Asset Registry",
+        evidence_type: "CMDB Impact",
+        trust_tier: "VERIFIED" as const,
+        trust_weight: 1.0,
+        evidence_score: 0.90,
+        content: "FIN-SERVER-01 is Tier-1 production financial transaction processing server.",
+      },
+    ];
+  }
+}
+
+export async function fetchAllEvidence() {
+  const res = await fetch(`${API_BASE}/evidence`, { cache: 'no-store' });
+  if (!res.ok) throw new Error("Failed to fetch all evidence");
+  return res.json();
+}
+
+export async function fetchAllDecisions() {
+  const res = await fetch(`${API_BASE}/decisions`, { cache: 'no-store' });
+  if (!res.ok) throw new Error("Failed to fetch decisions");
   return res.json();
 }
 

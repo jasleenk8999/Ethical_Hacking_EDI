@@ -25,8 +25,48 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${mono.variable}`}>
+    <html lang="en" className={`${inter.variable} ${mono.variable}`} suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var origSetAttr = Element.prototype.setAttribute;
+                  Element.prototype.setAttribute = function(name, val) {
+                    if (name === 'bis_skin_checked') return;
+                    return origSetAttr.apply(this, arguments);
+                  };
+                  if (typeof MutationObserver !== 'undefined') {
+                    new MutationObserver(function(mutations) {
+                      for (var i = 0; i < mutations.length; i++) {
+                        var m = mutations[i];
+                        if (m.type === 'attributes' && m.attributeName === 'bis_skin_checked' && m.target) {
+                          m.target.removeAttribute('bis_skin_checked');
+                        }
+                        if (m.addedNodes) {
+                          for (var j = 0; j < m.addedNodes.length; j++) {
+                            var n = m.addedNodes[j];
+                            if (n.nodeType === 1) {
+                              if (n.hasAttribute('bis_skin_checked')) n.removeAttribute('bis_skin_checked');
+                              var nested = n.querySelectorAll ? n.querySelectorAll('[bis_skin_checked]') : [];
+                              for (var k = 0; k < nested.length; k++) {
+                                nested[k].removeAttribute('bis_skin_checked');
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }).observe(document.documentElement, { attributes: true, subtree: true, childList: true });
+                  }
+                } catch(e) {}
+              })();
+            `,
+          }}
+        />
+      </head>
       <body
+        suppressHydrationWarning
         style={{
           backgroundColor: "var(--bg-base)",
           color: "var(--text-primary)",
