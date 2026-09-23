@@ -18,6 +18,7 @@ export default function Topbar({ title, subtitle }: { title?: string; subtitle?:
 
   return (
     <header
+      className="app-topbar"
       style={{
         height: 52,
         background: "var(--bg-elevated)",
@@ -33,7 +34,7 @@ export default function Topbar({ title, subtitle }: { title?: string; subtitle?:
       }}
     >
       {/* Left — breadcrumb-style title */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div className="topbar-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
           {title || "SOC Operations"}
         </span>
@@ -62,7 +63,7 @@ export default function Topbar({ title, subtitle }: { title?: string; subtitle?:
       </div>
 
       {/* Right — controls */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div className="topbar-controls" style={{ display: "flex", alignItems: "center", gap: 12 }}>
         {/* Clock */}
         <div
           style={{

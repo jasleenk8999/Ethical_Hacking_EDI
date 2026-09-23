@@ -44,6 +44,7 @@ export default function Sidebar() {
 
   return (
     <aside
+      className="app-sidebar"
       style={{
         width: 220,
         background: "var(--bg-elevated)",
@@ -82,7 +83,7 @@ export default function Sidebar() {
         >
           <AlertOctagon style={{ width: 16, height: 16, color: "var(--accent-blue)" }} />
         </div>
-        <div>
+        <div className="sidebar-brand-copy">
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span
               style={{
@@ -127,6 +128,7 @@ export default function Sidebar() {
         {NAV_GROUPS.map((group) => (
           <div key={group.label} style={{ marginBottom: 20 }}>
             <div
+              className="sidebar-group-label"
               style={{
                 fontSize: 10,
                 fontFamily: "monospace",
@@ -147,7 +149,7 @@ export default function Sidebar() {
                 <Link
                   key={item.name}
                   href={item.href}
-                  className="nav-link"
+                  className={`nav-link${isActive ? " is-active" : ""}`}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -209,10 +211,10 @@ export default function Sidebar() {
             }}
           />
           <div>
-            <div style={{ fontSize: 10, fontWeight: 600, color: "#d97706", letterSpacing: "0.04em" }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: "#f5c96a", letterSpacing: "0.04em" }}>
               SIMULATION MODE
             </div>
-            <div style={{ fontSize: 9, color: "#78350f", marginTop: 1 }}>
+            <div style={{ fontSize: 9, color: "#d8dff4", marginTop: 1 }}>
               No real actions executed
             </div>
           </div>
