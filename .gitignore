@@ -1,4 +1,4 @@
-# Python
+# Python files
 __pycache__/
 *.py[cod]
 *.pyo
@@ -7,7 +7,7 @@ __pycache__/
 pip-log.txt
 pip-delete-this-directory.txt
 
-# Virtual Environment
+# Virtual Environment 
 venv/
 env/
 ENV/
