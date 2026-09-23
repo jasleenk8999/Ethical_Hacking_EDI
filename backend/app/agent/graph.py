@@ -63,19 +63,24 @@ def build_llm():
             temperature=0.0,
         )
 
-    elif provider == "bharatcode":
-        key = os.getenv("BHARATCODE_API_KEY")
+    elif provider == "openai_compat":
+        # Any OpenAI-compatible provider (BharatCode, Groq, Together, local server, etc.)
+        # Set model/base_url in config.yaml under agent.openai_compat
+        key = os.getenv("OPENAI_COMPAT_API_KEY")
         if not key:
-            raise RuntimeError("BHARATCODE_API_KEY required when agent.provider=bharatcode")
+            raise RuntimeError(
+                "OPENAI_COMPAT_API_KEY required when agent.provider=openai_compat.\n"
+                "Set it in backend/.env or export it before starting the server."
+            )
         return ChatOpenAI(
-            model=settings.agent.bharatcode.model,
+            model=settings.agent.openai_compat.model,
             api_key=key,
-            base_url=settings.agent.bharatcode.base_url,
+            base_url=settings.agent.openai_compat.base_url,
             temperature=0.0,
         )
 
     else:
-        raise RuntimeError(f"Unknown agent.provider: {provider!r}. Valid values: 'anthropic', 'bharatcode'")
+        raise RuntimeError(f"Unknown agent.provider: {provider!r}. Valid values: 'anthropic', 'openai_compat'")
 
 
 # ── Lazy LLM initialization ─────────────────────────────────────────────────────

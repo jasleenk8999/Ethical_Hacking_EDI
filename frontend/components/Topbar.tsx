@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { RefreshCw, ChevronDown, Bell, Clock } from "lucide-react";
 
 const ROLES = ["SOC Analyst (Tier-1)", "SOC Analyst (Tier-2)", "Security Administrator", "Academic Researcher"];
@@ -8,8 +8,16 @@ const ROLES = ["SOC Analyst (Tier-1)", "SOC Analyst (Tier-2)", "Security Adminis
 export default function Topbar({ title, subtitle }: { title?: string; subtitle?: string }) {
   const [role, setRole] = useState(ROLES[0]);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const now = new Date();
-  const timeStr = now.toUTCString().replace("GMT", "UTC");
+  const [timeStr, setTimeStr] = useState<string>("");
+
+  useEffect(() => {
+    const updateTime = () => {
+      setTimeStr(new Date().toUTCString().replace("GMT", "UTC"));
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -65,6 +73,7 @@ export default function Topbar({ title, subtitle }: { title?: string; subtitle?:
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         {/* Clock */}
         <div
+          suppressHydrationWarning
           style={{
             display: "flex",
             alignItems: "center",
@@ -75,7 +84,7 @@ export default function Topbar({ title, subtitle }: { title?: string; subtitle?:
           }}
         >
           <Clock style={{ width: 12, height: 12 }} />
-          {timeStr}
+          <span suppressHydrationWarning>{timeStr}</span>
         </div>
 
         {/* Role selector */}

@@ -14,6 +14,7 @@ The key difference from the original pipeline:
 
 import json
 import time
+from uuid import uuid4
 from sqlalchemy.orm import Session
 
 from app.models.domain import AlertRecord
@@ -24,10 +25,12 @@ from app.services.evaluation_context import EvaluationContext
 from app.agent.graph import run_agent_investigation
 
 
+
 def run_investigation_pipeline_integrated(
     db: Session,
     alert_id_str: str,
-    scoring_method: str = "WEIGHTED_TRUST"
+    scoring_method: str = "WEIGHTED_TRUST",
+    use_test_seam: bool = False
 ) -> dict:
     """
     Production investigation pipeline with transaction atomicity and ToolCall persistence.
@@ -65,6 +68,11 @@ def run_investigation_pipeline_integrated(
     ).first()
     if not alert_record:
         raise ValueError(f"Alert {alert_id_str} not found")
+    
+    # Test mode: use deterministic investigation (test-only, explicit opt-in)
+    if use_test_seam:
+        from app.services.investigation_test_seam import run_deterministic_investigation
+        return run_deterministic_investigation(db, alert_id_str, scoring_method)
     
     # Start atomic transaction
     with InvestigationTransaction(db, alert_id_str) as tx:
@@ -104,7 +112,7 @@ def run_investigation_pipeline_integrated(
             raw_strength = float(getattr(evidence_item, "raw_strength", 0.0))
             
             evidence_items_data.append({
-                "evidence_id": f"EV-{tool_name[:3].upper()}-{alert_id_str[-4:]}",
+                "evidence_id": f"EV-{tool_name[:3].upper()}-{alert_id_str[-4:]}-{uuid4().hex[:6]}",
                 "tool_name": tool_name,
                 "evidence_type": "AGENT_LOOKUP",
                 "content": getattr(evidence_item, "content", {}),

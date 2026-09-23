@@ -342,7 +342,7 @@ export default function AgentReasoningPage() {
                 border: "none",
                 display: "flex",
                 alignItems: "center",
-                justify: "space-between",
+                justifyContent: "space-between",
                 cursor: "pointer",
                 color: "var(--text-primary)",
                 fontSize: 11,

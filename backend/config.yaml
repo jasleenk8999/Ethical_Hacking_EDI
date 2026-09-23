@@ -4,10 +4,16 @@ database:
   url: sqlite:///./caira.db
 
 agent:
-  provider: bharatcode   # "bharatcode" or "anthropic"
+  provider: openai_compat   # "openai_compat" or "anthropic"
   max_iterations: 15
   anthropic:
     model: claude-3-5-sonnet-20240620
-  bharatcode:
-    model: bharatcode:qwen36-35b-q6-256k-vision
+  openai_compat:
+    # Any OpenAI-compatible endpoint — change model/base_url to match your provider.
+    # Examples:
+    #   BharatCode  — model: bharatcode:qwen36-35b-q6-256k-vision  base_url: https://bharatcode.ai/api/model/v1
+    #   Groq        — model: llama-3.1-70b-versatile               base_url: https://api.groq.com/openai/v1
+    #   Together AI — model: meta-llama/Meta-Llama-3.1-70B         base_url: https://api.together.xyz/v1
+    #   OpenAI      — model: gpt-4o                                base_url: (omit to use default)
+    model: deepseek-v4.1-flash
     base_url: https://bharatcode.ai/api/model/v1

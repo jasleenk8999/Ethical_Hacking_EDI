@@ -17,16 +17,17 @@ class AnthropicConfig(BaseModel):
     model: str = "claude-3-5-sonnet-20240620"
 
 
-class BharatcodeConfig(BaseModel):
-    model: str = "bharatcode:qwen36-35b-q6-256k-vision"
-    base_url: str = "https://bharatcode.ai/api/model/v1"
+class OpenAICompatConfig(BaseModel):
+    """OpenAI-compatible provider (e.g. BharatCode, Groq, Together, any local OpenAI-API server)."""
+    model: str = "gpt-4o"
+    base_url: str = "https://api.openai.com/v1"
 
 
 class AgentConfig(BaseModel):
-    provider: str = "bharatcode"
+    provider: str = "openai_compat"   # "openai_compat" or "anthropic"
     max_iterations: int = 15
     anthropic: AnthropicConfig = AnthropicConfig()
-    bharatcode: BharatcodeConfig = BharatcodeConfig()
+    openai_compat: OpenAICompatConfig = OpenAICompatConfig()
 
 
 class DatabaseConfig(BaseModel):
@@ -64,13 +65,20 @@ def get_settings() -> Settings:
     agent_raw = raw.get("agent", {})
 
     anthropic_raw = agent_raw.pop("anthropic", {}) if isinstance(agent_raw, dict) else {}
-    bharatcode_raw = agent_raw.pop("bharatcode", {}) if isinstance(agent_raw, dict) else {}
+    # Support both "openai_compat" (new) and legacy "bharatcode" key in config.yaml
+    openai_compat_raw = agent_raw.pop("openai_compat", {}) if isinstance(agent_raw, dict) else {}
+    if not openai_compat_raw:
+        openai_compat_raw = agent_raw.pop("bharatcode", {}) if isinstance(agent_raw, dict) else {}
+
+    # Normalise provider name: treat legacy "bharatcode" value as "openai_compat"
+    if isinstance(agent_raw, dict) and agent_raw.get("provider") == "bharatcode":
+        agent_raw["provider"] = "openai_compat"
 
     return Settings(
         database=DatabaseConfig(**db_raw),
         agent=AgentConfig(
-            **{k: v for k, v in agent_raw.items() if k not in ("anthropic", "bharatcode")},
+            **{k: v for k, v in agent_raw.items() if k not in ("anthropic", "openai_compat", "bharatcode")},
             anthropic=AnthropicConfig(**anthropic_raw),
-            bharatcode=BharatcodeConfig(**bharatcode_raw),
+            openai_compat=OpenAICompatConfig(**openai_compat_raw),
         ),
     )

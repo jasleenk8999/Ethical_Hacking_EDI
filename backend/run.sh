@@ -1,14 +1,17 @@
 #!/bin/bash
-# CAIRA Backend Startup Script with BharatCode Configuration
+# CAIRA Backend Startup Script
 
 set -e
 
 # Load environment variables
 if [ -f ".env.local" ]; then
     echo "📦 Loading environment variables from .env.local..."
-    source .env.local
+    set -a && . .env.local && set +a
+elif [ -f ".env" ]; then
+    echo "📦 Loading environment variables from .env..."
+    set -a && . .env && set +a
 else
-    echo "⚠️  Warning: .env.local not found. Make sure BHARATCODE_API_KEY is set."
+    echo "⚠️  Warning: Neither .env.local nor .env found. Make sure OPENAI_COMPAT_API_KEY is set."
 fi
 
 # Activate virtual environment if it exists
@@ -23,20 +26,26 @@ fi
 
 # Verify configuration
 echo "🔍 Verifying CAIRA configuration..."
-python << PYEOF
+python <<PYEOF
 import os
 import sys
 from app.core.config import get_settings
 
 settings = get_settings()
-api_key = os.getenv("BHARATCODE_API_KEY")
+provider = settings.agent.provider
+api_key = os.getenv("OPENAI_COMPAT_API_KEY") if provider == "openai_compat" else os.getenv("ANTHROPIC_API_KEY")
 
-print(f"   Provider: {settings.agent.provider}")
-print(f"   Model: {settings.agent.bharatcode.model}")
-print(f"   API Key: {'✓ Set' if api_key else '✗ Missing'}")
+print(f"   Provider: {provider}")
+if provider == "openai_compat":
+    print(f"   Model:    {settings.agent.openai_compat.model}")
+    print(f"   Base URL: {settings.agent.openai_compat.base_url}")
+elif provider == "anthropic":
+    print(f"   Model:    {settings.agent.anthropic.model}")
+print(f"   API Key:  {'✓ Set' if api_key else '✗ Missing'}")
 
-if not api_key and settings.agent.provider == "bharatcode":
-    print("\n❌ Error: BHARATCODE_API_KEY not set")
+if not api_key:
+    env_var = "OPENAI_COMPAT_API_KEY" if provider == "openai_compat" else "ANTHROPIC_API_KEY"
+    print(f"\n❌ Error: {env_var} not set")
     sys.exit(1)
 PYEOF
 

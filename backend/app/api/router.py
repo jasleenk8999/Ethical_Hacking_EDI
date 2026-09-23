@@ -1,4 +1,5 @@
 import json
+import os
 import time
 import logging
 from typing import List, Optional, Dict, Any
@@ -79,7 +80,10 @@ def investigate_incident(alert_id_str: str, req: InvestigationRequest = Investig
     """
     start_time = time.time()
     try:
-        result = run_investigation_pipeline_integrated(db, alert_id_str, scoring_method=req.scoring_method)
+        # Always use production path (test mode is test-only)
+        result = run_investigation_pipeline_integrated(
+            db, alert_id_str, scoring_method=req.scoring_method
+        )
         elapsed = time.time() - start_time
         
         # Log metrics for monitoring
@@ -268,10 +272,12 @@ def verify_audit(db: Session = Depends(get_db)):
 # --- EVALUATION HARNESS ENDPOINTS ---
 @api_router.post("/evaluation/run")
 def run_evaluation(agent_version: str = "CAIRA-v1.0", db: Session = Depends(get_db)):
-    results = run_evaluation_harness(db, agent_type=agent_version)
+    harness_result = run_evaluation_harness(db, agent_type=agent_version)
+    records = harness_result["evaluation_records"]
     return {
         "agent_version": agent_version,
-        "total_scenarios": len(results),
+        "evaluation_run_id": harness_result["evaluation_run_id"],
+        "total_scenarios": len(records),
         "results": [
             {
                 "scenario_id": r.scenario_id,
@@ -287,7 +293,7 @@ def run_evaluation(agent_version: str = "CAIRA-v1.0", db: Session = Depends(get_
                 "ttfc": r.ttfc,
                 "blast_radius": r.blast_radius
             }
-            for r in results
+            for r in records
         ]
     }
 
