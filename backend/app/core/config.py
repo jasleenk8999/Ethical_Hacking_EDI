@@ -21,6 +21,10 @@ class OpenAICompatConfig(BaseModel):
     """OpenAI-compatible provider (e.g. BharatCode, Groq, Together, any local OpenAI-API server)."""
     model: str = "gpt-4o"
     base_url: str = "https://api.openai.com/v1"
+    # Optional fallback — invoked automatically on 503 / model_unavailable from the primary.
+    fallback_model: Optional[str] = None
+    fallback_base_url: Optional[str] = None
+    fallback_api_key_env: Optional[str] = None  # env var name holding the fallback API key
 
 
 class AgentConfig(BaseModel):

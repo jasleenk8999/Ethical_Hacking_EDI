@@ -22,21 +22,23 @@ export default function AuditTrailPage() {
   const [loading, setLoading] = useState(true);
   const [verifying, setVerifying] = useState(false);
   const [verificationResult, setVerificationResult] = useState<any>(null);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAllAuditTrails()
       .then((data) => { setAuditRecords(data); setLoading(false); })
-      .catch((err) => { console.error("Error fetching audit trails:", err); setLoading(false); });
+      .catch(() => { setLoading(false); });
   }, []);
 
   const handleVerifyIntegrity = async () => {
     setVerifying(true);
     setVerificationResult(null);
+    setVerifyError(null);
     try {
       const res = await verifyAuditChain();
       setVerificationResult(res);
-    } catch (err) {
-      console.error("Verification failed:", err);
+    } catch (err: any) {
+      setVerifyError(err?.message?.includes("fetch") ? "Backend offline — start the server and retry." : (err?.message ?? "Verification failed."));
     } finally {
       setVerifying(false);
     }
@@ -69,6 +71,25 @@ export default function AuditTrailPage() {
           {verifying ? "Verifying…" : "Verify Audit Integrity"}
         </button>
       </div>
+
+      {/* ── Verify error banner ── */}
+      {verifyError && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "12px 16px",
+            borderRadius: 5,
+            border: "1px solid rgba(248,113,113,0.3)",
+            borderLeft: "3px solid #f87171",
+            background: "var(--bg-surface)",
+          }}
+        >
+          <AlertTriangle style={{ width: 14, height: 14, color: "#f87171", flexShrink: 0 }} />
+          <div style={{ fontSize: 12, color: "#f87171", fontWeight: 500 }}>{verifyError}</div>
+        </div>
+      )}
 
       {/* ── Verification result banner ── */}
       {verificationResult && (

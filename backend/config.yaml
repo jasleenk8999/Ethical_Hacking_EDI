@@ -15,5 +15,9 @@ agent:
     #   Groq        — model: llama-3.1-70b-versatile               base_url: https://api.groq.com/openai/v1
     #   Together AI — model: meta-llama/Meta-Llama-3.1-70B         base_url: https://api.together.xyz/v1
     #   OpenAI      — model: gpt-4o                                base_url: (omit to use default)
-    model: deepseek-v4.1-flash
-    base_url: https://bharatcode.ai/api/model/v1
+    model: openai/gpt-oss-120b
+    base_url: https://api.groq.com/openai/v1
+
+    fallback_model: openai/gpt-oss-120b
+    fallback_base_url: https://api.groq.com/openai/v1
+    fallback_api_key_env: GROQ_API_KEY

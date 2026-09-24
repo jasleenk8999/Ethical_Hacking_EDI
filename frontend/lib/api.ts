@@ -84,7 +84,10 @@ export async function ingestAlert(payload: any) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
-  if (!res.ok) throw new Error("Failed to ingest alert");
+  if (!res.ok) {
+    const detail = await res.text().catch(() => res.statusText);
+    throw new Error(`Failed to ingest alert: ${detail}`);
+  }
   return res.json();
 }
 
@@ -94,7 +97,10 @@ export async function runInvestigation(alertId: string, scoringMethod: string = 
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ scoring_method: scoringMethod })
   });
-  if (!res.ok) throw new Error("Failed to run investigation");
+  if (!res.ok) {
+    const detail = await res.text().catch(() => res.statusText);
+    throw new Error(`Failed to run investigation: ${detail}`);
+  }
   return res.json();
 }
 
@@ -102,7 +108,10 @@ export async function simulateContainment(alertId: string) {
   const res = await fetch(`${API_BASE}/incidents/${alertId}/simulate-containment`, {
     method: "POST"
   });
-  if (!res.ok) throw new Error("Failed to simulate containment");
+  if (!res.ok) {
+    const detail = await res.text().catch(() => res.statusText);
+    throw new Error(`Failed to simulate containment: ${detail}`);
+  }
   return res.json();
 }
 
@@ -110,7 +119,10 @@ export async function escalateIncident(alertId: string) {
   const res = await fetch(`${API_BASE}/incidents/${alertId}/escalate`, {
     method: "POST"
   });
-  if (!res.ok) throw new Error("Failed to escalate incident");
+  if (!res.ok) {
+    const detail = await res.text().catch(() => res.statusText);
+    throw new Error(`Failed to escalate incident: ${detail}`);
+  }
   return res.json();
 }
 
@@ -154,55 +166,94 @@ export async function fetchEvidence(alertId: string) {
 }
 
 export async function fetchAllEvidence() {
-  const res = await fetch(`${API_BASE}/evidence`, { cache: 'no-store' });
-  if (!res.ok) throw new Error("Failed to fetch all evidence");
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE}/evidence`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Backend returned ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn(`[API] Failed to fetch all evidence, backend may be offline:`, err);
+    return [];
+  }
 }
 
 export async function fetchAllDecisions() {
-  const res = await fetch(`${API_BASE}/decisions`, { cache: 'no-store' });
-  if (!res.ok) throw new Error("Failed to fetch decisions");
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE}/decisions`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Backend returned ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn(`[API] Failed to fetch decisions, backend may be offline:`, err);
+    return [];
+  }
 }
 
 export async function fetchIncidentAudit(alertId: string) {
-  const res = await fetch(`${API_BASE}/incidents/${alertId}/audit`, { cache: 'no-store' });
-  if (!res.ok) throw new Error("Failed to fetch incident audit");
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE}/incidents/${alertId}/audit`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Backend returned ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn(`[API] Failed to fetch audit for ${alertId}, backend may be offline:`, err);
+    return [];
+  }
 }
 
 export async function fetchAllAuditTrails() {
-  const res = await fetch(`${API_BASE}/audit/all`, { cache: 'no-store' });
-  if (!res.ok) throw new Error("Failed to fetch audit trails");
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE}/audit/all`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Backend returned ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn(`[API] Failed to fetch audit trails, backend may be offline:`, err);
+    return [];
+  }
 }
 
 export async function verifyAuditChain() {
-  const res = await fetch(`${API_BASE}/audit/verify`, {
-    method: "POST"
-  });
-  if (!res.ok) throw new Error("Failed to verify audit chain");
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE}/audit/verify`, { method: "POST" });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => res.statusText);
+      throw new Error(`Failed to verify audit chain: ${detail}`);
+    }
+    return res.json();
+  } catch (err) {
+    console.warn(`[API] Failed to verify audit chain, backend may be offline:`, err);
+    throw err;
+  }
 }
 
 export async function fetchEvaluationResults() {
-  const res = await fetch(`${API_BASE}/evaluation/results`, { cache: 'no-store' });
-  if (!res.ok) throw new Error("Failed to fetch evaluation results");
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE}/evaluation/results`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Backend returned ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn(`[API] Failed to fetch evaluation results, backend may be offline:`, err);
+    return null;
+  }
 }
 
 export async function runEvaluationHarness(agentVersion: string = "CAIRA-v1.0") {
   const res = await fetch(`${API_BASE}/evaluation/run?agent_version=${agentVersion}`, {
     method: "POST"
   });
-  if (!res.ok) throw new Error("Failed to run evaluation harness");
+  if (!res.ok) {
+    const detail = await res.text().catch(() => res.statusText);
+    throw new Error(`Failed to run evaluation harness: ${detail}`);
+  }
   return res.json();
 }
 
 export async function fetchScenarios() {
-  const res = await fetch(`${API_BASE}/scenarios`, { cache: 'no-store' });
-  if (!res.ok) throw new Error("Failed to fetch scenarios");
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE}/scenarios`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Backend returned ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn(`[API] Failed to fetch scenarios, backend may be offline:`, err);
+    return [];
+  }
 }
 
 export async function createScenario(payload: any) {
@@ -211,14 +262,22 @@ export async function createScenario(payload: any) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
-  if (!res.ok) throw new Error("Failed to create scenario");
+  if (!res.ok) {
+    const detail = await res.text().catch(() => res.statusText);
+    throw new Error(`Failed to create scenario: ${detail}`);
+  }
   return res.json();
 }
 
 export async function fetchDatabaseSchema() {
-  const res = await fetch(`${API_BASE}/schema`, { cache: 'no-store' });
-  if (!res.ok) throw new Error("Failed to fetch schema");
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE}/schema`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Backend returned ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn(`[API] Failed to fetch schema, backend may be offline:`, err);
+    return null;
+  }
 }
 
 export function getReportDownloadUrl(reportType: string) {
