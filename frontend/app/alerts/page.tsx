@@ -44,7 +44,12 @@ export default function AlertIngestionPage() {
       const res = await ingestAlert(parsed);
       setSuccessResult(res);
     } catch (err: any) {
-      setErrorMsg(err.message || "Invalid JSON payload or ingestion error.");
+      const msg = err?.message ?? "";
+      if (msg.toLowerCase().includes("fetch")) {
+        setErrorMsg("Cannot reach the backend — make sure the server is running on port 8000.");
+      } else {
+        setErrorMsg(msg || "Invalid JSON payload or ingestion error.");
+      }
     } finally {
       setIngesting(false);
     }

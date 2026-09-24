@@ -33,10 +33,10 @@ export default function SettingsPage() {
             <Cpu style={{ width: 18, height: 18, color: "var(--accent-blue)", flexShrink: 0, marginTop: 2 }} />
             <div>
               <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", marginBottom: 2 }}>
-                Model: claude-3-5-sonnet-20240620
+                Model: deepseek-v4.1-flash
               </div>
               <div style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.5 }}>
-                LangGraph State Machine agent initialized with Anthropic API key (`ANTHROPIC_API_KEY`). Deterministic temperature=0.0.
+                LangGraph State Machine agent initialized via OpenAI-compatible endpoint (`OPENAI_COMPAT_API_KEY`) hosted on BharatCode. Deterministic temperature=0.0.
               </div>
             </div>
           </div>

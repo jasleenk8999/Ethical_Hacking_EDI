@@ -82,6 +82,7 @@ export default function IncidentInvestigationPage() {
   const [investigationData, setInvestigationData] = useState<any>(null);
   const [activeStepIndex, setActiveStepIndex] = useState(-1);
   const [isRunning, setIsRunning] = useState(false);
+  const [investigationError, setInvestigationError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalDetails, setModalDetails] = useState<any>(null);
 
@@ -109,6 +110,7 @@ export default function IncidentInvestigationPage() {
       setActiveStepIndex(i - 1);
     }
     try {
+      setInvestigationError(null);
       const res = await runInvestigation(alertId);
       setInvestigationData(res);
       await loadAlertAndEvidence();
@@ -123,8 +125,15 @@ export default function IncidentInvestigationPage() {
         });
         setModalOpen(true);
       }
-    } catch (err) {
-      console.error("Investigation failed:", err);
+    } catch (err: any) {
+      const raw = err?.message ?? "";
+      if (raw.includes("model_unavailable") || raw.includes("503") || raw.includes("service_unavailable")) {
+        setInvestigationError("LLM provider offline — deepseek-v4.1-flash is only available 13:30\u201305:30 IST. Try again during the availability window, or swap the model in backend/config.yaml.");
+      } else if (raw.includes("fetch")) {
+        setInvestigationError("Cannot reach the backend — make sure the server is running on port 8000.");
+      } else {
+        setInvestigationError(raw || "Investigation failed.");
+      }
     } finally {
       setIsRunning(false);
     }
@@ -237,7 +246,20 @@ export default function IncidentInvestigationPage() {
               Escalate
             </button>
           </div>
-        </div>
+        </div>{/* end top row */}
+
+        {/* Investigation error banner */}
+        {investigationError && (
+          <div style={{
+            display: "flex", alignItems: "flex-start", gap: 8, marginTop: 10,
+            padding: "10px 14px", borderRadius: 4,
+            background: "rgba(248,113,113,0.07)", border: "1px solid rgba(248,113,113,0.2)",
+            color: "#f87171", fontSize: 12, lineHeight: 1.5,
+          }}>
+            <AlertTriangle style={{ width: 14, height: 14, flexShrink: 0, marginTop: 1 }} />
+            {investigationError}
+          </div>
+        )}
 
         {/* Metadata strip */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, paddingTop: 12, borderTop: "1px solid var(--border-subtle)" }}>
@@ -253,7 +275,7 @@ export default function IncidentInvestigationPage() {
             </div>
           ))}
         </div>
-      </div>
+      </div>{/* end incident header card */}
 
       {/* ── Investigation pipeline ── */}
       <Divider label="Evidence-Gated Investigation Pipeline" />

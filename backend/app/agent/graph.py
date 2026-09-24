@@ -43,11 +43,56 @@ Before calling submit_decision, output your analysis in this structure:
 - Cap the investigation at 15 tool calls total to prevent infinite loops.
 """
 
-# ── LLM factory (provider-switched) ─────────────────────────────────────────────
+# ── LLM factory (provider-switched, with automatic fallback) ─────────────────────
+
+def _is_unavailable_error(exc: Exception) -> bool:
+    """Return True when the exception signals the primary model is down (503 / model_unavailable)."""
+    msg = str(exc).lower()
+    return any(tok in msg for tok in ("503", "model_unavailable", "service_unavailable", "overloaded"))
+
+
+class _FallbackLLM:
+    """
+    Thin wrapper around a primary ChatOpenAI that transparently retries with a
+    fallback ChatOpenAI instance when the primary returns a 503 / model_unavailable.
+    Exposes bind_tools() so it is a drop-in replacement inside call_agent().
+    """
+    def __init__(self, primary: ChatOpenAI, fallback: Optional[ChatOpenAI], fallback_model: str = ""):
+        self._primary = primary
+        self._fallback = fallback
+        self._fallback_model = fallback_model
+
+    # Mimic LangChain's bind_tools — returns a bound wrapper.
+    def bind_tools(self, tools):
+        primary_bound = self._primary.bind_tools(tools)
+        fallback_bound = self._fallback.bind_tools(tools) if self._fallback else None
+        return _BoundFallbackLLM(primary_bound, fallback_bound, self._fallback_model)
+
+
+class _BoundFallbackLLM:
+    def __init__(self, primary_bound, fallback_bound, fallback_model: str):
+        self._primary = primary_bound
+        self._fallback = fallback_bound
+        self._fallback_model = fallback_model
+
+    def invoke(self, messages):
+        try:
+            return self._primary.invoke(messages)
+        except Exception as exc:
+            if self._fallback and _is_unavailable_error(exc):
+                print(
+                    f"[CAIRA] Primary model unavailable ({exc.__class__.__name__}: {exc}). "
+                    f"Retrying with fallback: {self._fallback_model}"
+                )
+                return self._fallback.invoke(messages)
+            raise
+
 
 def build_llm():
     """
     Build the LLM from config.yaml agent.provider.
+    When provider=openai_compat and a fallback_model is configured, returns a
+    _FallbackLLM wrapper that automatically retries with the fallback on 503s.
     Fails fast if the required env var for the configured provider is missing.
     """
     settings = get_settings()
@@ -64,20 +109,37 @@ def build_llm():
         )
 
     elif provider == "openai_compat":
-        # Any OpenAI-compatible provider (BharatCode, Groq, Together, local server, etc.)
-        # Set model/base_url in config.yaml under agent.openai_compat
         key = os.getenv("OPENAI_COMPAT_API_KEY")
         if not key:
             raise RuntimeError(
                 "OPENAI_COMPAT_API_KEY required when agent.provider=openai_compat.\n"
                 "Set it in backend/.env or export it before starting the server."
             )
-        return ChatOpenAI(
+        primary = ChatOpenAI(
             model=settings.agent.openai_compat.model,
             api_key=key,
             base_url=settings.agent.openai_compat.base_url,
             temperature=0.0,
         )
+
+        # Build fallback if configured
+        cfg = settings.agent.openai_compat
+        fallback = None
+        if cfg.fallback_model and cfg.fallback_base_url:
+            fallback_key_env = cfg.fallback_api_key_env or "GROQ_API_KEY"
+            fallback_key = os.getenv(fallback_key_env)
+            if fallback_key:
+                fallback = ChatOpenAI(
+                    model=cfg.fallback_model,
+                    api_key=fallback_key,
+                    base_url=cfg.fallback_base_url,
+                    temperature=0.0,
+                )
+                print(f"[CAIRA] Fallback LLM configured: {cfg.fallback_model} via {cfg.fallback_base_url}")
+            else:
+                print(f"[CAIRA] Warning: fallback_model set but {fallback_key_env} env var missing — fallback disabled.")
+
+        return _FallbackLLM(primary, fallback, cfg.fallback_model or "")
 
     else:
         raise RuntimeError(f"Unknown agent.provider: {provider!r}. Valid values: 'anthropic', 'openai_compat'")
